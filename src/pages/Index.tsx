@@ -33,11 +33,12 @@ const experiments = [
   },
   {
     id: "bobina",
-    available: false,
+    available: true,
     icon: Magnet,
     area: "Magnetismo",
     title: "Campo magnético de bobinas",
     description: "Lei de Biot–Savart aplicada a solenoides e bobinas de Helmholtz.",
+    href: "/experimentos/bobina",
   },
   {
     id: "inducao",
@@ -108,7 +109,8 @@ const Index = () => {
           <dl className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-6 animate-fade-in">
             {[
               { k: "3", v: "Experimentos ativos" },
-              { k: "3+", v: "Em desenvolvimento" },
+              { k: "4", v: "Experimentos ativos" },
+              { k: "2+", v: "Em desenvolvimento" },
               { k: "Tempo real", v: "Cálculos físicos" },
               { k: "IA", v: "Assistente contextual" },
             ].map((s) => (
