@@ -107,9 +107,8 @@ const Index = () => {
 
           <dl className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-6 animate-fade-in">
             {[
-              { k: "2", v: "Experimentos ativos" },
-            { k: "3", v: "Experimentos ativos" },
-            { k: "3+", v: "Em desenvolvimento" },
+              { k: "3", v: "Experimentos ativos" },
+              { k: "3+", v: "Em desenvolvimento" },
               { k: "Tempo real", v: "Cálculos físicos" },
               { k: "IA", v: "Assistente contextual" },
             ].map((s) => (
