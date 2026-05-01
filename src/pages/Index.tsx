@@ -42,11 +42,12 @@ const experiments = [
   },
   {
     id: "inducao",
-    available: false,
+    available: true,
     icon: Magnet,
     area: "Indução",
     title: "Indução eletromagnética",
     description: "Lei de Faraday: f.e.m. induzida em espiras móveis.",
+    href: "/experimentos/inducao",
   },
   {
     id: "trafo",
@@ -108,8 +109,8 @@ const Index = () => {
 
           <dl className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-6 animate-fade-in">
             {[
-              { k: "4", v: "Experimentos ativos" },
-              { k: "2+", v: "Em desenvolvimento" },
+              { k: "5", v: "Experimentos ativos" },
+              { k: "1+", v: "Em desenvolvimento" },
               { k: "Tempo real", v: "Cálculos físicos" },
               { k: "IA", v: "Assistente contextual" },
             ].map((s) => (
