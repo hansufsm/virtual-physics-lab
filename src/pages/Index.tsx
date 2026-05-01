@@ -24,11 +24,12 @@ const experiments = [
   },
   {
     id: "rc",
-    available: false,
+    available: true,
     icon: Activity,
     area: "Circuitos",
     title: "Circuito RC — carga e descarga",
     description: "Constante de tempo τ = RC e análise transitória.",
+    href: "/experimentos/rc",
   },
   {
     id: "bobina",
@@ -106,8 +107,8 @@ const Index = () => {
 
           <dl className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-6 animate-fade-in">
             {[
-              { k: "2", v: "Experimentos ativos" },
-              { k: "4+", v: "Em desenvolvimento" },
+              { k: "3", v: "Experimentos ativos" },
+              { k: "3+", v: "Em desenvolvimento" },
               { k: "Tempo real", v: "Cálculos físicos" },
               { k: "IA", v: "Assistente contextual" },
             ].map((s) => (

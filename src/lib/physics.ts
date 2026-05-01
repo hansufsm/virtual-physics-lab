@@ -100,3 +100,54 @@ export function linearRegression(points: { x: number; y: number }[]) {
   const r2 = ssTot === 0 ? 1 : 1 - ssRes / ssTot;
   return { slope, intercept, r2 };
 }
+
+// ===== RC circuit — charge/discharge =====
+
+export type RCMode = "charge" | "discharge";
+
+export interface RCParams {
+  emf: number;            // V (tensão da fonte E)
+  resistanceK: number;    // kΩ
+  capacitanceUf: number;  // µF
+  mode: RCMode;
+  /** Tensão inicial no capacitor em t=0 (V). Útil para descarga começar carregado. */
+  v0: number;
+}
+
+export interface RCResults {
+  tau: number;            // s (constante de tempo τ = R·C)
+  rOhm: number;           // Ω
+  cFarad: number;         // F
+  vFinal: number;         // V (regime permanente)
+  i0: number;             // A (corrente em t=0+)
+}
+
+export function computeRC(p: RCParams): RCResults {
+  const R = Math.max(0, p.resistanceK) * 1e3;
+  const C = Math.max(0, p.capacitanceUf) * 1e-6;
+  const tau = R * C;
+  const vFinal = p.mode === "charge" ? p.emf : 0;
+  const i0 = R > 0 ? (vFinal - p.v0) / R : 0;
+  return { tau, rOhm: R, cFarad: C, vFinal, i0 };
+}
+
+/** Tensão no capacitor em função do tempo. */
+export function rcVoltage(p: RCParams, t: number): number {
+  const { tau, vFinal } = computeRC(p);
+  if (tau <= 0) return vFinal;
+  return vFinal + (p.v0 - vFinal) * Math.exp(-t / tau);
+}
+
+/** Corrente no resistor em função do tempo (sentido convencional, fonte→capacitor). */
+export function rcCurrent(p: RCParams, t: number): number {
+  const { tau, vFinal, rOhm } = computeRC(p);
+  if (tau <= 0 || rOhm <= 0) return 0;
+  return ((vFinal - p.v0) / rOhm) * Math.exp(-t / tau);
+}
+
+/** Energia armazenada no capacitor em função do tempo (J). */
+export function rcEnergy(p: RCParams, t: number): number {
+  const v = rcVoltage(p, t);
+  const { cFarad } = computeRC(p);
+  return 0.5 * cFarad * v * v;
+}
