@@ -51,11 +51,12 @@ const experiments = [
   },
   {
     id: "trafo",
-    available: false,
+    available: true,
     icon: Atom,
     area: "Indução",
     title: "Transformadores",
     description: "Razão de transformação e acoplamento magnético.",
+    href: "/experimentos/transformador",
   },
 ];
 
@@ -109,8 +110,8 @@ const Index = () => {
 
           <dl className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-6 animate-fade-in">
             {[
-              { k: "5", v: "Experimentos ativos" },
-              { k: "1+", v: "Em desenvolvimento" },
+              { k: "6", v: "Experimentos ativos" },
+              { k: "Open", v: "Próximos por vir" },
               { k: "Tempo real", v: "Cálculos físicos" },
               { k: "IA", v: "Assistente contextual" },
             ].map((s) => (

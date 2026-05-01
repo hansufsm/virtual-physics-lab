@@ -334,3 +334,77 @@ export function faradayStep(
   const a = p.withGravity ? -G_EARTH : 0;
   return { pos: pos + vel * dt, vel: vel + a * dt };
 }
+
+// ===== Transformer =====
+
+export interface TransformerParams {
+  vPrimaryRms: number;   // V (tensão eficaz da rede)
+  freqHz: number;        // Hz
+  n1: number;            // espiras primário
+  n2: number;            // espiras secundário
+  loadOhm: number;       // Ω (carga resistiva no secundário)
+  coupling: number;      // k ∈ [0,1]
+  r1Ohm: number;         // resistência do enrolamento primário
+  r2Ohm: number;         // resistência do enrolamento secundário
+}
+
+export interface TransformerResults {
+  ratio: number;         // a = N1/N2
+  vSecondaryIdeal: number; // V (eficaz, ideal)
+  vSecondary: number;    // V (eficaz, com perdas e k)
+  iSecondary: number;    // A (eficaz)
+  iPrimary: number;      // A (eficaz)
+  pIn: number;           // W (potência aparente de entrada ≈ ativa, fp≈1)
+  pOut: number;          // W (na carga)
+  pLoss: number;         // W (dissipada nos enrolamentos)
+  efficiency: number;    // η ∈ [0,1]
+  type: "step-up" | "step-down" | "isolation";
+}
+
+export function computeTransformer(p: TransformerParams): TransformerResults {
+  const a = p.n1 / Math.max(1, p.n2);
+  const k = Math.max(0, Math.min(1, p.coupling));
+  const RL = Math.max(1e-6, p.loadOhm);
+
+  // Carga refletida ao primário ≈ a² · RL
+  const Rload_ref = a * a * RL;
+  // Modelo simplificado: tensão eficaz no secundário considera divisor pelas resistências
+  // de enrolamento e fator de acoplamento k.
+  const Rtot = p.r1Ohm + Rload_ref + a * a * p.r2Ohm;
+  const iPrim = p.vPrimaryRms / Math.max(1e-6, Rtot);
+  const vSecIdeal = p.vPrimaryRms / a; // ideal: V2 = V1 · N2/N1
+  // f.e.m. eficaz no secundário considerando perdas no primário + acoplamento
+  const eSec = k * (p.vPrimaryRms - iPrim * p.r1Ohm) / a;
+  // Divisor entre R2 do enrolamento e RL
+  const iSec = eSec / Math.max(1e-6, p.r2Ohm + RL);
+  const vSec = iSec * RL;
+
+  const pIn = p.vPrimaryRms * iPrim;
+  const pOut = vSec * iSec;
+  const pLoss = Math.max(0, pIn - pOut);
+  const efficiency = pIn > 0 ? Math.max(0, Math.min(1, pOut / pIn)) : 0;
+
+  let type: TransformerResults["type"] = "isolation";
+  if (a > 1.001) type = "step-down";
+  else if (a < 0.999) type = "step-up";
+
+  return {
+    ratio: a,
+    vSecondaryIdeal: vSecIdeal,
+    vSecondary: vSec,
+    iSecondary: iSec,
+    iPrimary: iPrim,
+    pIn, pOut, pLoss, efficiency, type,
+  };
+}
+
+/** Forma de onda instantânea de V1 e V2 (k corrige amplitude). */
+export function transformerWaveform(p: TransformerParams, t: number): { v1: number; v2: number } {
+  const omega = 2 * Math.PI * p.freqHz;
+  const v1 = p.vPrimaryRms * Math.SQRT2 * Math.sin(omega * t);
+  const r = computeTransformer(p);
+  // V2 instantâneo proporcional, em fase para carga puramente resistiva
+  const ratioInst = r.vSecondary / Math.max(1e-9, p.vPrimaryRms);
+  const v2 = v1 * ratioInst;
+  return { v1, v2 };
+}
