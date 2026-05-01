@@ -214,3 +214,123 @@ export function computeCoil(p: CoilParams): CoilResults {
   const uniformityPct = bC > 0 ? Math.abs(bC - bMid) / bC * 100 : 0;
   return { bCenter, bIdealSolenoid, nPerMeter: n, uniformityPct };
 }
+
+// ===== Electromagnetic induction (Faraday) =====
+
+export const G_EARTH = 9.81; // m/s²
+
+export type FaradayMode = "loop" | "magnet";
+
+/** Modo "loop": espira retangular entrando/saindo de uma região de campo B uniforme.
+ *  Modo "magnet": dipolo magnético (ímã) deslocando-se ao longo do eixo de uma bobina. */
+export interface FaradayParams {
+  mode: FaradayMode;
+
+  // — comuns —
+  turns: number;             // N
+  resistanceOhm: number;     // R do circuito (resistor + bobina)
+
+  // — modo loop —
+  bField: number;            // T (campo da região)
+  loopWidthCm: number;       // largura horizontal da espira (cm)
+  loopHeightCm: number;      // altura vertical da espira (cm)
+  velocityCmS: number;       // velocidade horizontal da espira (cm/s)
+  regionWidthCm: number;     // largura horizontal da região com campo (cm)
+
+  // — modo magnet —
+  coilRadiusCm: number;      // raio da bobina (cm)
+  coilLengthCm: number;      // comprimento da bobina (cm)
+  magnetMoment: number;      // m (A·m²) momento de dipolo do ímã
+  dropHeightCm: number;      // altura inicial do ímã acima do centro da bobina (cm)
+  withGravity: boolean;      // se true: queda livre; se false: velocidade constante
+  magnetSpeedCmS: number;    // velocidade constante quando withGravity=false
+}
+
+export interface FaradayState {
+  t: number;
+  /** Posição característica: x da espira (m, modo loop) ou z do ímã (m, modo magnet) */
+  pos: number;
+  vel: number;
+  flux: number;     // Wb (já multiplicado por N)
+  emf: number;      // V (f.e.m. induzida)
+  current: number;  // A
+  power: number;    // W dissipada no resistor
+}
+
+/** Fluxo magnético total (Wb, já × N) em função da posição. */
+export function faradayFlux(p: FaradayParams, pos: number): number {
+  if (p.mode === "loop") {
+    const w = p.loopWidthCm * 1e-2;
+    const h = p.loopHeightCm * 1e-2;
+    const W = p.regionWidthCm * 1e-2;
+    // região centrada em x=0, de -W/2 a +W/2; espira centrada em x=pos, largura w
+    const xL = pos - w / 2;
+    const xR = pos + w / 2;
+    const overlapL = Math.max(xL, -W / 2);
+    const overlapR = Math.min(xR, +W / 2);
+    const overlap = Math.max(0, overlapR - overlapL);
+    return p.turns * p.bField * overlap * h;
+  }
+  // magnet: aproximação dipolar — fluxo enlaçado por bobina ≈ N · µ0/2 · m · R²/(R²+z²)^(3/2)
+  const R = Math.max(1e-4, p.coilRadiusCm * 1e-2);
+  const L = Math.max(1e-4, p.coilLengthCm * 1e-2);
+  // Soma sobre K espiras distribuídas ao longo de L, centradas em z=0
+  const K = Math.min(40, Math.max(2, Math.round(p.turns / 5)));
+  const Nper = p.turns / K;
+  let phi = 0;
+  for (let k = 0; k < K; k++) {
+    const zk = -L / 2 + (L * (k + 0.5)) / K;
+    const dz = pos - zk;
+    const denom = Math.pow(R * R + dz * dz, 1.5);
+    phi += Nper * (MU_0 / 2) * p.magnetMoment * (R * R) / denom;
+  }
+  return phi;
+}
+
+/** Avalia f.e.m. = -dΦ/dt usando derivada centrada em pos. */
+export function faradayEmf(p: FaradayParams, pos: number, vel: number): number {
+  const eps = 1e-4;
+  const dPhi = faradayFlux(p, pos + eps) - faradayFlux(p, pos - eps);
+  const dPhidx = dPhi / (2 * eps);
+  return -dPhidx * vel;
+}
+
+/** Estado completo num dado instante, dada a posição e a velocidade. */
+export function faradayState(p: FaradayParams, t: number, pos: number, vel: number): FaradayState {
+  const flux = faradayFlux(p, pos);
+  const emf = faradayEmf(p, pos, vel);
+  const R = Math.max(1e-6, p.resistanceOhm);
+  const current = emf / R;
+  const power = current * current * R;
+  return { t, pos, vel, flux, emf, current, power };
+}
+
+/** Posição inicial coerente com o modo. */
+export function faradayInitialPos(p: FaradayParams): number {
+  if (p.mode === "loop") {
+    const w = p.loopWidthCm * 1e-2;
+    const W = p.regionWidthCm * 1e-2;
+    return -(W / 2 + w / 2 + 0.02); // começa fora, à esquerda
+  }
+  return p.dropHeightCm * 1e-2; // ímã acima da bobina
+}
+
+export function faradayInitialVel(p: FaradayParams): number {
+  if (p.mode === "loop") return p.velocityCmS * 1e-2;
+  return p.withGravity ? 0 : -Math.abs(p.magnetSpeedCmS) * 1e-2;
+}
+
+/** Avança um passo de simulação (RK1 simples). */
+export function faradayStep(
+  p: FaradayParams,
+  pos: number,
+  vel: number,
+  dt: number,
+): { pos: number; vel: number } {
+  if (p.mode === "loop") {
+    return { pos: pos + vel * dt, vel };
+  }
+  // magnet caindo: aceleração = -g se gravidade ligada (desprezamos força de freio magnético para didática)
+  const a = p.withGravity ? -G_EARTH : 0;
+  return { pos: pos + vel * dt, vel: vel + a * dt };
+}
