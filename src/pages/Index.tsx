@@ -15,11 +15,12 @@ const experiments = [
   },
   {
     id: "ohm",
-    available: false,
+    available: true,
     icon: Activity,
     area: "Circuitos",
     title: "Lei de Ohm e resistividade",
     description: "Verifique a relação V = R·I e meça a resistividade de materiais.",
+    href: "/experimentos/ohm",
   },
   {
     id: "rc",
@@ -105,8 +106,8 @@ const Index = () => {
 
           <dl className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-6 animate-fade-in">
             {[
-              { k: "1", v: "Experimento ativo" },
-              { k: "5+", v: "Em desenvolvimento" },
+              { k: "2", v: "Experimentos ativos" },
+              { k: "4+", v: "Em desenvolvimento" },
               { k: "Tempo real", v: "Cálculos físicos" },
               { k: "IA", v: "Assistente contextual" },
             ].map((s) => (

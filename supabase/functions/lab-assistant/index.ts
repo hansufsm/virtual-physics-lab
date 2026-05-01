@@ -20,11 +20,14 @@ Deno.serve(async (req) => {
     }
 
     const ctxStr = context ? JSON.stringify(context, null, 2) : "(sem contexto)";
+    const expName = (context && typeof (context as any).experimento === "string")
+      ? (context as any).experimento
+      : "experimento atual";
     const systemPrompt = `Você é um tutor de Física especializado em Eletricidade e Magnetismo, integrado a um Laboratório Virtual de graduação.
 
-Estilo: claro, didático, em português do Brasil. Use notação matemática simples (ex.: C = εᵣε₀A/d). Quando relevante, sugira variações de parâmetros para o estudante explorar.
+Estilo: claro, didático, em português do Brasil. Use notação matemática simples (ex.: V = R·I, C = εᵣε₀A/d). Quando relevante, sugira variações de parâmetros para o estudante explorar.
 
-Contexto atual do experimento (capacitor de placas paralelas):
+Contexto atual do experimento (${expName}):
 ${ctxStr}
 
 Responda de forma concisa (máx. ~6 parágrafos curtos). Se o estudante perguntar algo fora do escopo de eletromagnetismo, redirecione gentilmente.`;
