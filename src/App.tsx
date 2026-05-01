@@ -8,6 +8,7 @@ import NotFound from "./pages/NotFound.tsx";
 import CapacitorExperiment from "./pages/CapacitorExperiment.tsx";
 import OhmExperiment from "./pages/OhmExperiment.tsx";
 import RCExperiment from "./pages/RCExperiment.tsx";
+import CoilExperiment from "./pages/CoilExperiment.tsx";
 
 const queryClient = new QueryClient();
 
@@ -22,6 +23,7 @@ const App = () => (
           <Route path="/experimentos/capacitor" element={<CapacitorExperiment />} />
           <Route path="/experimentos/ohm" element={<OhmExperiment />} />
           <Route path="/experimentos/rc" element={<RCExperiment />} />
+          <Route path="/experimentos/bobina" element={<CoilExperiment />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
