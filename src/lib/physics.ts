@@ -151,3 +151,66 @@ export function rcEnergy(p: RCParams, t: number): number {
   const { cFarad } = computeRC(p);
   return 0.5 * cFarad * v * v;
 }
+
+// ===== Magnetic field of coils (Biot–Savart) =====
+
+export const MU_0 = 4 * Math.PI * 1e-7; // T·m/A
+
+export type CoilType = "solenoid" | "helmholtz" | "single";
+
+export interface CoilParams {
+  type: CoilType;
+  current: number;       // A
+  turns: number;         // N (total para solenoide; por bobina para Helmholtz/single)
+  radiusCm: number;      // raio da bobina (cm)
+  lengthCm: number;      // comprimento do solenoide (cm) — ignorado para Helmholtz/single
+}
+
+export interface CoilResults {
+  bCenter: number;       // T (campo no centro geométrico)
+  bIdealSolenoid: number;// T (aproximação infinita µ₀nI, só para solenoide)
+  nPerMeter: number;     // espiras/m (solenoide)
+  uniformityPct: number; // % variação de B no eixo entre ±r/2 do centro
+}
+
+/** Campo axial Bz de uma única espira de raio R, no ponto (z) sobre o eixo. */
+export function bAxisLoop(R: number, I: number, z: number): number {
+  const denom = Math.pow(R * R + z * z, 1.5);
+  return (MU_0 * I * R * R) / (2 * denom);
+}
+
+/** Campo axial Bz de um solenoide finito de comprimento L, raio R, n espiras/m, centrado em z=0. */
+export function bAxisSolenoid(R: number, L: number, n: number, I: number, z: number): number {
+  const a = (L / 2 - z) / Math.sqrt(R * R + (L / 2 - z) ** 2);
+  const b = (L / 2 + z) / Math.sqrt(R * R + (L / 2 + z) ** 2);
+  return 0.5 * MU_0 * n * I * (a + b);
+}
+
+/** Helmholtz: duas bobinas idênticas separadas por d = R, cada uma com N espiras. */
+export function bAxisHelmholtz(R: number, N: number, I: number, z: number): number {
+  const d = R; // separação ideal de Helmholtz
+  return N * (bAxisLoop(R, I, z - d / 2) + bAxisLoop(R, I, z + d / 2));
+}
+
+/** Avalia Bz(z) no eixo de acordo com a geometria escolhida. */
+export function bAxis(p: CoilParams, z: number): number {
+  const R = Math.max(1e-4, p.radiusCm * 1e-2);
+  const L = Math.max(1e-4, p.lengthCm * 1e-2);
+  if (p.type === "single") return p.turns * bAxisLoop(R, p.current, z);
+  if (p.type === "helmholtz") return bAxisHelmholtz(R, p.turns, p.current, z);
+  // solenoid
+  const n = p.turns / L;
+  return bAxisSolenoid(R, L, n, p.current, z);
+}
+
+export function computeCoil(p: CoilParams): CoilResults {
+  const R = Math.max(1e-4, p.radiusCm * 1e-2);
+  const L = Math.max(1e-4, p.lengthCm * 1e-2);
+  const n = p.type === "solenoid" ? p.turns / L : 0;
+  const bCenter = bAxis(p, 0);
+  const bIdealSolenoid = MU_0 * n * p.current;
+  const bMid = Math.abs(bAxis(p, R / 2));
+  const bC = Math.abs(bCenter);
+  const uniformityPct = bC > 0 ? Math.abs(bC - bMid) / bC * 100 : 0;
+  return { bCenter, bIdealSolenoid, nPerMeter: n, uniformityPct };
+}
