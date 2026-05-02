@@ -408,3 +408,79 @@ export function transformerWaveform(p: TransformerParams, t: number): { v1: numb
   const v2 = v1 * ratioInst;
   return { v1, v2 };
 }
+
+// ===== RLC series circuit — frequency response & resonance =====
+
+export interface RLCParams {
+  vSourceRms: number;     // V (amplitude eficaz da fonte AC)
+  freqHz: number;         // Hz (frequência de operação para grandezas instantâneas)
+  resistanceOhm: number;  // Ω
+  inductanceMh: number;   // mH
+  capacitanceUf: number;  // µF
+}
+
+export interface RLCResults {
+  rOhm: number;
+  lH: number;
+  cF: number;
+  omega: number;          // rad/s na freqHz
+  omega0: number;         // rad/s ressonância
+  f0: number;             // Hz ressonância
+  xL: number;             // Ω reatância indutiva na freqHz
+  xC: number;             // Ω reatância capacitiva na freqHz
+  reactance: number;      // X = XL - XC
+  impedance: number;      // |Z|
+  phaseDeg: number;       // φ = atan2(X, R) em graus (V em relação a I)
+  currentRms: number;     // A
+  vR: number; vL: number; vC: number; // V eficazes nos componentes
+  pAvg: number;           // W
+  Q: number;              // fator de qualidade
+  bandwidthHz: number;    // Δf
+}
+
+export function computeRLC(p: RLCParams): RLCResults {
+  const R = Math.max(1e-6, p.resistanceOhm);
+  const L = Math.max(1e-9, p.inductanceMh) * 1e-3;
+  const C = Math.max(1e-15, p.capacitanceUf) * 1e-6;
+  const omega = 2 * Math.PI * p.freqHz;
+  const omega0 = 1 / Math.sqrt(L * C);
+  const f0 = omega0 / (2 * Math.PI);
+  const xL = omega * L;
+  const xC = 1 / (omega * C);
+  const X = xL - xC;
+  const Z = Math.sqrt(R * R + X * X);
+  const phaseDeg = (Math.atan2(X, R) * 180) / Math.PI;
+  const I = p.vSourceRms / Z;
+  const vR = I * R;
+  const vL = I * xL;
+  const vC = I * xC;
+  const pAvg = I * I * R;
+  const Q = (1 / R) * Math.sqrt(L / C);
+  const bandwidthHz = f0 / Math.max(1e-9, Q);
+  return {
+    rOhm: R, lH: L, cF: C, omega, omega0, f0,
+    xL, xC, reactance: X, impedance: Z, phaseDeg,
+    currentRms: I, vR, vL, vC, pAvg, Q, bandwidthHz,
+  };
+}
+
+/** Resposta em frequência: amplitude da corrente |I(f)| para varredura. */
+export function rlcCurrentAtFreq(p: RLCParams, f: number): number {
+  const omega = 2 * Math.PI * f;
+  const L = Math.max(1e-9, p.inductanceMh) * 1e-3;
+  const C = Math.max(1e-15, p.capacitanceUf) * 1e-6;
+  const R = Math.max(1e-6, p.resistanceOhm);
+  const X = omega * L - 1 / (omega * C);
+  const Z = Math.sqrt(R * R + X * X);
+  return p.vSourceRms / Z;
+}
+
+/** Forma de onda v(t) e i(t) com defasagem φ. */
+export function rlcWaveform(p: RLCParams, t: number): { v: number; i: number } {
+  const r = computeRLC(p);
+  const omega = r.omega;
+  const v = p.vSourceRms * Math.SQRT2 * Math.sin(omega * t);
+  const phi = (r.phaseDeg * Math.PI) / 180;
+  const i = r.currentRms * Math.SQRT2 * Math.sin(omega * t - phi);
+  return { v, i };
+}

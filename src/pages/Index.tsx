@@ -58,6 +58,15 @@ const experiments = [
     description: "Razão de transformação e acoplamento magnético.",
     href: "/experimentos/transformador",
   },
+  {
+    id: "rlc",
+    available: true,
+    icon: Activity,
+    area: "Circuitos AC",
+    title: "Circuito RLC — ressonância",
+    description: "Reatâncias, defasagem, curva de ressonância e fator de qualidade Q.",
+    href: "/experimentos/rlc",
+  },
 ];
 
 const Index = () => {
@@ -110,7 +119,7 @@ const Index = () => {
 
           <dl className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-6 animate-fade-in">
             {[
-              { k: "6", v: "Experimentos ativos" },
+              { k: "7", v: "Experimentos ativos" },
               { k: "Open", v: "Próximos por vir" },
               { k: "Tempo real", v: "Cálculos físicos" },
               { k: "IA", v: "Assistente contextual" },
