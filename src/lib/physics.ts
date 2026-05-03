@@ -484,3 +484,105 @@ export function rlcWaveform(p: RLCParams, t: number): { v: number; i: number } {
   const i = r.currentRms * Math.SQRT2 * Math.sin(omega * t - phi);
   return { v, i };
 }
+
+// ===== DC Motor — Laplace force on a current-carrying loop =====
+
+export interface DCMotorParams {
+  voltage: number;        // V (tensão da fonte)
+  resistanceOhm: number;  // Ω (resistência da armadura)
+  bField: number;         // T (campo magnético)
+  loopWidthCm: number;    // a (largura, lados que cortam B)
+  loopHeightCm: number;   // b (altura, lados ativos onde F = BIL atua)
+  turns: number;          // N (espiras da bobina)
+  loadTorqueMnm: number;  // mN·m (torque resistente externo)
+  frictionCoef: number;   // N·m·s (atrito viscoso b)
+  inertiaGcm2: number;    // g·cm² (momento de inércia do rotor)
+  kE: number;             // V·s/rad (constante de f.c.e.m.) — derivada se 0
+}
+
+export interface DCMotorResults {
+  area: number;           // m² (área da espira)
+  kT: number;             // N·m/A (constante de torque)
+  kE: number;             // V·s/rad (constante de f.c.e.m.)
+  inertia: number;        // kg·m²
+  iStall: number;         // A (corrente de partida, ω=0)
+  tStall: number;         // N·m (torque de partida)
+  omegaNoLoad: number;    // rad/s (velocidade sem carga)
+  rpmNoLoad: number;      // RPM sem carga
+  omegaSteady: number;    // rad/s (regime com carga)
+  rpmSteady: number;      // RPM em regime
+  iSteady: number;        // A em regime
+  bemfSteady: number;     // V em regime
+  pIn: number;            // W (V·I)
+  pMech: number;          // W (T·ω)
+  pLoss: number;          // W (R·I²)
+  efficiency: number;     // η ∈ [0,1]
+}
+
+export function computeDCMotor(p: DCMotorParams): DCMotorResults {
+  const a = Math.max(1e-4, p.loopWidthCm * 1e-2);   // m
+  const b = Math.max(1e-4, p.loopHeightCm * 1e-2);  // m
+  const A = a * b;
+  // Torque máximo em uma espira plana num campo uniforme: τ = N·B·I·A·cos(θ)
+  // Aproximação com comutador: torque médio ≈ (2/π)·N·B·I·A. Para didática, usamos τ ≈ kT·I com
+  // kT = (2/π)·N·B·A, que dá uma curva torque×ω suave e fisicamente coerente.
+  const kT = (2 / Math.PI) * p.turns * p.bField * A;
+  const kE = p.kE > 0 ? p.kE : kT; // unidades SI: kT (N·m/A) = kE (V·s/rad)
+  const R = Math.max(1e-3, p.resistanceOhm);
+  const J = Math.max(1e-9, p.inertiaGcm2 * 1e-7); // g·cm² → kg·m²  (1 g·cm² = 1e-7 kg·m²)
+
+  const iStall = p.voltage / R;
+  const tStall = kT * iStall;
+
+  // Sem carga (Tload=0, atrito b·ω): ω = (kT·V) / (R·b + kE·kT)
+  const bf = Math.max(0, p.frictionCoef);
+  const Tload = Math.max(0, p.loadTorqueMnm) * 1e-3; // N·m
+  const denomNL = R * bf + kE * kT;
+  const omegaNoLoad = denomNL > 0 ? (kT * p.voltage) / denomNL : (kE > 0 ? p.voltage / kE : 0);
+
+  // Com carga: kT·(V - kE·ω)/R = b·ω + Tload
+  // ⇒ ω·(kE·kT/R + b) = kT·V/R - Tload
+  const omegaSteady = Math.max(0, (kT * p.voltage / R - Tload) / Math.max(1e-9, kE * kT / R + bf));
+  const iSteady = (p.voltage - kE * omegaSteady) / R;
+  const bemfSteady = kE * omegaSteady;
+  const pIn = p.voltage * iSteady;
+  const pMech = (kT * iSteady - bf * omegaSteady) * omegaSteady;
+  const pLoss = R * iSteady * iSteady;
+  const efficiency = pIn > 0 ? Math.max(0, Math.min(1, pMech / pIn)) : 0;
+
+  return {
+    area: A, kT, kE, inertia: J,
+    iStall, tStall,
+    omegaNoLoad, rpmNoLoad: (omegaNoLoad * 60) / (2 * Math.PI),
+    omegaSteady, rpmSteady: (omegaSteady * 60) / (2 * Math.PI),
+    iSteady, bemfSteady,
+    pIn, pMech, pLoss, efficiency,
+  };
+}
+
+/** Torque instantâneo τ(θ) = N·B·I·A·|cos θ| (com comutador idealizado). */
+export function dcMotorTorqueAtAngle(p: DCMotorParams, currentA: number, thetaRad: number): number {
+  const A = (p.loopWidthCm * 1e-2) * (p.loopHeightCm * 1e-2);
+  return p.turns * p.bField * currentA * A * Math.abs(Math.cos(thetaRad));
+}
+
+/** Avança o estado do rotor (θ, ω) por um passo dt. */
+export function dcMotorStep(
+  p: DCMotorParams,
+  theta: number,
+  omega: number,
+  dt: number,
+): { theta: number; omega: number; current: number; torque: number } {
+  const r = computeDCMotor(p);
+  const R = Math.max(1e-3, p.resistanceOhm);
+  const i = (p.voltage - r.kE * omega) / R;
+  // Torque eletromagnético médio (com comutador) — usamos kT·i para estabilidade
+  const tElec = r.kT * i;
+  const tLoad = Math.max(0, p.loadTorqueMnm) * 1e-3;
+  const tFric = Math.max(0, p.frictionCoef) * omega;
+  const net = tElec - tLoad - tFric;
+  const alpha = net / Math.max(1e-9, r.inertia);
+  const newOmega = Math.max(0, omega + alpha * dt);
+  const newTheta = (theta + newOmega * dt) % (2 * Math.PI);
+  return { theta: newTheta, omega: newOmega, current: i, torque: tElec };
+}

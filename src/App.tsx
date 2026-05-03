@@ -12,6 +12,7 @@ import CoilExperiment from "./pages/CoilExperiment.tsx";
 import FaradayExperiment from "./pages/FaradayExperiment.tsx";
 import TransformerExperiment from "./pages/TransformerExperiment.tsx";
 import RLCExperiment from "./pages/RLCExperiment.tsx";
+import MotorExperiment from "./pages/MotorExperiment.tsx";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +31,7 @@ const App = () => (
           <Route path="/experimentos/inducao" element={<FaradayExperiment />} />
           <Route path="/experimentos/transformador" element={<TransformerExperiment />} />
           <Route path="/experimentos/rlc" element={<RLCExperiment />} />
+          <Route path="/experimentos/motor" element={<MotorExperiment />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

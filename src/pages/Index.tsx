@@ -67,6 +67,15 @@ const experiments = [
     description: "Reatâncias, defasagem, curva de ressonância e fator de qualidade Q.",
     href: "/experimentos/rlc",
   },
+  {
+    id: "motor",
+    available: true,
+    icon: Magnet,
+    area: "Magnetismo",
+    title: "Motor DC — força de Laplace",
+    description: "Torque em espira percorrida por corrente, curva T(ω), f.c.e.m. e eficiência.",
+    href: "/experimentos/motor",
+  },
 ];
 
 const Index = () => {
@@ -119,7 +128,7 @@ const Index = () => {
 
           <dl className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-6 animate-fade-in">
             {[
-              { k: "7", v: "Experimentos ativos" },
+              { k: "8", v: "Experimentos ativos" },
               { k: "Open", v: "Próximos por vir" },
               { k: "Tempo real", v: "Cálculos físicos" },
               { k: "IA", v: "Assistente contextual" },
