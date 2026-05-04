@@ -1,18 +1,29 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   CartesianGrid, Legend, Line, LineChart, ReferenceLine,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import { Button } from "@/components/ui/button";
-import { Download } from "lucide-react";
+import { Download, Save, Trash2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
+import { toast } from "@/hooks/use-toast";
 import { computeDCMotor, dcMotorTorqueAtAngle, type DCMotorParams } from "@/lib/physics";
 
 interface Props { params: DCMotorParams }
 
 type SweepKey = "bField" | "resistanceOhm" | "voltage";
+type Spacing = "linear" | "log";
+type SweepRanges = Record<SweepKey, { min: number; max: number }>;
+interface SweepPreset {
+  name: string;
+  sweepKey: SweepKey;
+  spacing: Spacing;
+  steps: number;
+  ranges: SweepRanges;
+  builtin?: boolean;
+}
 
 const SWEEP_META: Record<SweepKey, {
   label: string; unit: string;
@@ -32,6 +43,37 @@ const SWEEP_COLORS = [
   "hsl(var(--destructive))",
   "hsl(var(--muted-foreground))",
 ];
+
+const DEFAULT_RANGES: SweepRanges = {
+  bField:        { min: SWEEP_META.bField.defMin,        max: SWEEP_META.bField.defMax },
+  resistanceOhm: { min: SWEEP_META.resistanceOhm.defMin, max: SWEEP_META.resistanceOhm.defMax },
+  voltage:       { min: SWEEP_META.voltage.defMin,       max: SWEEP_META.voltage.defMax },
+};
+
+const BUILTIN_PRESETS: SweepPreset[] = [
+  {
+    name: "Faixa padrão", builtin: true, sweepKey: "bField", spacing: "linear", steps: 5,
+    ranges: DEFAULT_RANGES,
+  },
+  {
+    name: "Faixa intensa", builtin: true, sweepKey: "bField", spacing: "linear", steps: 10,
+    ranges: {
+      bField:        { min: 0.1, max: 3 },
+      resistanceOhm: { min: 0.5, max: 50 },
+      voltage:       { min: 1,   max: 48 },
+    },
+  },
+  {
+    name: "Log amplo (R)", builtin: true, sweepKey: "resistanceOhm", spacing: "log", steps: 8,
+    ranges: {
+      bField:        DEFAULT_RANGES.bField,
+      resistanceOhm: { min: 0.1, max: 200 },
+      voltage:       DEFAULT_RANGES.voltage,
+    },
+  },
+];
+
+const STORAGE_KEY = "motor.sweep.presets.v1";
 
 export const MotorDataTab = ({ params }: Props) => {
   const r = useMemo(() => computeDCMotor(params), [params]);
@@ -64,16 +106,63 @@ export const MotorDataTab = ({ params }: Props) => {
   // ───────── Varredura paramétrica (B, R ou V) ─────────
   const [sweepKey, setSweepKey] = useState<SweepKey>("bField");
   const [steps, setSteps] = useState(5);
-  const [spacing, setSpacing] = useState<"linear" | "log">("linear");
-  // Intervalos por parâmetro (independentes para cada chave)
-  const [ranges, setRanges] = useState<Record<SweepKey, { min: number; max: number }>>({
-    bField:        { min: SWEEP_META.bField.defMin,        max: SWEEP_META.bField.defMax },
-    resistanceOhm: { min: SWEEP_META.resistanceOhm.defMin, max: SWEEP_META.resistanceOhm.defMax },
-    voltage:       { min: SWEEP_META.voltage.defMin,       max: SWEEP_META.voltage.defMax },
-  });
+  const [spacing, setSpacing] = useState<Spacing>("linear");
+  const [ranges, setRanges] = useState<SweepRanges>(DEFAULT_RANGES);
+
+  // Presets salvos do usuário (persistidos em localStorage)
+  const [userPresets, setUserPresets] = useState<SweepPreset[]>([]);
+  const [presetName, setPresetName] = useState("");
+  const [activePreset, setActivePreset] = useState<string | null>("Faixa padrão");
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) setUserPresets(JSON.parse(raw));
+    } catch { /* ignore */ }
+  }, []);
+
+  const persist = (next: SweepPreset[]) => {
+    setUserPresets(next);
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+  };
+
+  const applyPreset = (p: SweepPreset) => {
+    setSweepKey(p.sweepKey);
+    setSpacing(p.spacing);
+    setSteps(p.steps);
+    setRanges(p.ranges);
+    setActivePreset(p.name);
+    toast({ title: "Preset aplicado", description: p.name });
+  };
+
+  const savePreset = () => {
+    const name = presetName.trim();
+    if (!name) {
+      toast({ title: "Dê um nome ao preset", description: "Digite um nome antes de salvar." });
+      return;
+    }
+    if (BUILTIN_PRESETS.some((b) => b.name === name)) {
+      toast({ title: "Nome reservado", description: "Esse nome é usado por um preset embutido." });
+      return;
+    }
+    const snapshot: SweepPreset = { name, sweepKey, spacing, steps, ranges };
+    const next = [...userPresets.filter((p) => p.name !== name), snapshot];
+    persist(next);
+    setPresetName("");
+    setActivePreset(name);
+    toast({ title: "Preset salvo", description: name });
+  };
+
+  const deletePreset = (name: string) => {
+    persist(userPresets.filter((p) => p.name !== name));
+    if (activePreset === name) setActivePreset(null);
+  };
+
   const range = ranges[sweepKey];
-  const setRange = (patch: Partial<{ min: number; max: number }>) =>
+  const setRange = (patch: Partial<{ min: number; max: number }>) => {
     setRanges((r) => ({ ...r, [sweepKey]: { ...r[sweepKey], ...patch } }));
+    setActivePreset(null);
+  };
 
   const sweepData = useMemo(() => {
     const meta = SWEEP_META[sweepKey];
