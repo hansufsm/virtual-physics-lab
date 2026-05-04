@@ -424,16 +424,18 @@ export const MotorDataTab = ({ params }: Props) => {
                 <Label className="text-xs font-medium text-foreground">Número de variações</Label>
                 <span className="font-mono text-xs text-primary tabular-nums">{steps}</span>
               </div>
-              <Slider value={[steps]} min={2} max={20} step={1} onValueChange={([v]) => setSteps(v)} />
+              <Slider value={[steps]} min={2} max={20} step={1}
+                onValueChange={([v]) => { setSteps(v); setActivePreset(null); }} />
             </div>
             <Button
               size="sm"
               variant="ghost"
               className="h-8 text-xs"
               onClick={() => {
-                setRange({ min: meta.defMin, max: meta.defMax });
+                setRanges((r) => ({ ...r, [sweepKey]: { min: meta.defMin, max: meta.defMax } }));
                 setSpacing("linear");
                 setSteps(5);
+                setActivePreset(null);
               }}
             >
               Resetar
