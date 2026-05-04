@@ -293,12 +293,68 @@ export const MotorDataTab = ({ params }: Props) => {
                 key={k}
                 size="sm"
                 variant={sweepKey === k ? "default" : "outline"}
-                onClick={() => setSweepKey(k)}
+                onClick={() => { setSweepKey(k); setActivePreset(null); }}
                 className="h-8"
               >
                 {SWEEP_META[k].label}
               </Button>
             ))}
+          </div>
+        </div>
+
+        {/* Presets de varredura */}
+        <div className="px-5 py-3 border-b border-border space-y-2">
+          <div className="flex items-baseline justify-between">
+            <Label className="text-xs font-medium text-foreground">Presets de varredura</Label>
+            <span className="text-[11px] text-muted-foreground">
+              {activePreset ? `Ativo: ${activePreset}` : "Configuração personalizada"}
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {BUILTIN_PRESETS.map((p) => (
+              <Button
+                key={p.name}
+                size="sm"
+                variant={activePreset === p.name ? "default" : "outline"}
+                onClick={() => applyPreset(p)}
+                className="h-7 text-xs"
+              >
+                {p.name}
+              </Button>
+            ))}
+            {userPresets.map((p) => (
+              <span key={p.name} className="inline-flex items-center rounded-md border border-border overflow-hidden">
+                <Button
+                  size="sm"
+                  variant={activePreset === p.name ? "default" : "ghost"}
+                  onClick={() => applyPreset(p)}
+                  className="h-7 rounded-none text-xs"
+                >
+                  {p.name}
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => deletePreset(p.name)}
+                  className="h-7 px-1.5 text-muted-foreground hover:text-destructive border-l border-border"
+                  aria-label={`Excluir preset ${p.name}`}
+                  title="Excluir preset"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </span>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <Input
+              value={presetName}
+              onChange={(e) => setPresetName(e.target.value)}
+              placeholder="Nome do preset (ex.: faixa de bancada)"
+              className="h-8 text-xs"
+              onKeyDown={(e) => { if (e.key === "Enter") savePreset(); }}
+            />
+            <Button size="sm" variant="outline" onClick={savePreset} className="h-8 shrink-0">
+              <Save className="h-3.5 w-3.5 mr-1.5" /> Salvar atual
+            </Button>
           </div>
         </div>
 
@@ -345,7 +401,7 @@ export const MotorDataTab = ({ params }: Props) => {
                   size="sm"
                   variant={spacing === "linear" ? "default" : "outline"}
                   className="h-8"
-                  onClick={() => setSpacing("linear")}
+                  onClick={() => { setSpacing("linear"); setActivePreset(null); }}
                 >
                   Linear
                 </Button>
@@ -353,7 +409,7 @@ export const MotorDataTab = ({ params }: Props) => {
                   size="sm"
                   variant={spacing === "log" ? "default" : "outline"}
                   className="h-8"
-                  onClick={() => setSpacing("log")}
+                  onClick={() => { setSpacing("log"); setActivePreset(null); }}
                   disabled={range.min <= 0 || range.max <= 0}
                 >
                   Log
