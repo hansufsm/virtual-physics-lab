@@ -7,16 +7,22 @@ import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
+import { Input } from "@/components/ui/input";
 import { computeDCMotor, dcMotorTorqueAtAngle, type DCMotorParams } from "@/lib/physics";
 
 interface Props { params: DCMotorParams }
 
 type SweepKey = "bField" | "resistanceOhm" | "voltage";
 
-const SWEEP_META: Record<SweepKey, { label: string; unit: string; min: number; max: number; fmt: (v: number) => string }> = {
-  bField:        { label: "Campo B",     unit: "T", min: 0.05, max: 1.5, fmt: (v) => `${v.toFixed(2)} T` },
-  resistanceOhm: { label: "Resistência R", unit: "Ω", min: 0.5,  max: 20,  fmt: (v) => `${v.toFixed(2)} Ω` },
-  voltage:       { label: "Tensão V",    unit: "V", min: 1,    max: 24,  fmt: (v) => `${v.toFixed(1)} V` },
+const SWEEP_META: Record<SweepKey, {
+  label: string; unit: string;
+  defMin: number; defMax: number;
+  hardMin: number; hardMax: number;
+  fmt: (v: number) => string;
+}> = {
+  bField:        { label: "Campo B",       unit: "T", defMin: 0.05, defMax: 1.5, hardMin: 1e-4, hardMax: 10,    fmt: (v) => `${v.toFixed(3)} T` },
+  resistanceOhm: { label: "Resistência R", unit: "Ω", defMin: 0.5,  defMax: 20,  hardMin: 1e-3, hardMax: 1000,  fmt: (v) => `${v.toFixed(2)} Ω` },
+  voltage:       { label: "Tensão V",      unit: "V", defMin: 1,    defMax: 24,  hardMin: 0,    hardMax: 240,   fmt: (v) => `${v.toFixed(2)} V` },
 };
 
 const SWEEP_COLORS = [
@@ -58,12 +64,28 @@ export const MotorDataTab = ({ params }: Props) => {
   // ───────── Varredura paramétrica (B, R ou V) ─────────
   const [sweepKey, setSweepKey] = useState<SweepKey>("bField");
   const [steps, setSteps] = useState(5);
+  const [spacing, setSpacing] = useState<"linear" | "log">("linear");
+  // Intervalos por parâmetro (independentes para cada chave)
+  const [ranges, setRanges] = useState<Record<SweepKey, { min: number; max: number }>>({
+    bField:        { min: SWEEP_META.bField.defMin,        max: SWEEP_META.bField.defMax },
+    resistanceOhm: { min: SWEEP_META.resistanceOhm.defMin, max: SWEEP_META.resistanceOhm.defMax },
+    voltage:       { min: SWEEP_META.voltage.defMin,       max: SWEEP_META.voltage.defMax },
+  });
+  const range = ranges[sweepKey];
+  const setRange = (patch: Partial<{ min: number; max: number }>) =>
+    setRanges((r) => ({ ...r, [sweepKey]: { ...r[sweepKey], ...patch } }));
 
   const sweepData = useMemo(() => {
     const meta = SWEEP_META[sweepKey];
+    const lo = Math.max(meta.hardMin, Math.min(range.min, range.max));
+    const hi = Math.min(meta.hardMax, Math.max(range.min, range.max));
+    const useLog = spacing === "log" && lo > 0 && hi > 0 && hi / Math.max(lo, 1e-12) > 1.0001;
     const values: number[] = [];
-    for (let k = 0; k < steps; k++) {
-      values.push(+(meta.min + (k / Math.max(1, steps - 1)) * (meta.max - meta.min)).toPrecision(3));
+    const n = Math.max(2, steps);
+    for (let k = 0; k < n; k++) {
+      const t = k / (n - 1);
+      const v = useLog ? lo * Math.pow(hi / lo, t) : lo + t * (hi - lo);
+      values.push(+v.toPrecision(4));
     }
 
     // Domínio de ω comum: usa o maior ω sem carga entre as variantes
@@ -102,7 +124,7 @@ export const MotorDataTab = ({ params }: Props) => {
       effPoints.push(eRow);
     }
     return { variants, torquePoints, effPoints };
-  }, [params, sweepKey, steps]);
+  }, [params, sweepKey, steps, spacing, range.min, range.max]);
 
   const meta = SWEEP_META[sweepKey];
 
@@ -191,17 +213,91 @@ export const MotorDataTab = ({ params }: Props) => {
           </div>
         </div>
 
-        <div className="px-5 py-3 border-b border-border grid sm:grid-cols-[1fr_auto] gap-4 items-center">
-          <div className="space-y-2">
-            <div className="flex items-baseline justify-between">
-              <Label className="text-xs font-medium text-foreground">Número de variações</Label>
-              <span className="font-mono text-xs text-primary tabular-nums">{steps}</span>
+        <div className="px-5 py-3 border-b border-border space-y-3">
+          <div className="grid sm:grid-cols-[1fr_1fr_auto] gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs font-medium text-foreground">
+                Mínimo ({meta.unit})
+              </Label>
+              <Input
+                type="number"
+                value={range.min}
+                min={meta.hardMin}
+                max={meta.hardMax}
+                step="any"
+                onChange={(e) => {
+                  const v = parseFloat(e.target.value);
+                  if (!Number.isNaN(v)) setRange({ min: v });
+                }}
+                className="h-8 font-mono text-xs"
+              />
             </div>
-            <Slider value={[steps]} min={2} max={5} step={1} onValueChange={([v]) => setSteps(v)} />
+            <div className="space-y-1">
+              <Label className="text-xs font-medium text-foreground">
+                Máximo ({meta.unit})
+              </Label>
+              <Input
+                type="number"
+                value={range.max}
+                min={meta.hardMin}
+                max={meta.hardMax}
+                step="any"
+                onChange={(e) => {
+                  const v = parseFloat(e.target.value);
+                  if (!Number.isNaN(v)) setRange({ max: v });
+                }}
+                className="h-8 font-mono text-xs"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs font-medium text-foreground">Espaçamento</Label>
+              <div className="flex gap-1">
+                <Button
+                  size="sm"
+                  variant={spacing === "linear" ? "default" : "outline"}
+                  className="h-8"
+                  onClick={() => setSpacing("linear")}
+                >
+                  Linear
+                </Button>
+                <Button
+                  size="sm"
+                  variant={spacing === "log" ? "default" : "outline"}
+                  className="h-8"
+                  onClick={() => setSpacing("log")}
+                  disabled={range.min <= 0 || range.max <= 0}
+                >
+                  Log
+                </Button>
+              </div>
+            </div>
           </div>
+
+          <div className="grid sm:grid-cols-[1fr_auto] gap-4 items-center">
+            <div className="space-y-2">
+              <div className="flex items-baseline justify-between">
+                <Label className="text-xs font-medium text-foreground">Número de variações</Label>
+                <span className="font-mono text-xs text-primary tabular-nums">{steps}</span>
+              </div>
+              <Slider value={[steps]} min={2} max={20} step={1} onValueChange={([v]) => setSteps(v)} />
+            </div>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 text-xs"
+              onClick={() => {
+                setRange({ min: meta.defMin, max: meta.defMax });
+                setSpacing("linear");
+                setSteps(5);
+              }}
+            >
+              Resetar
+            </Button>
+          </div>
+
           <div className="flex flex-wrap gap-1.5">
             {sweepData.variants.map((v, i) => (
-              <span key={v.val} className="inline-flex items-center gap-1.5 rounded-full border border-border px-2 py-0.5 text-[11px] font-mono">
+              <span key={`${v.val}-${i}`} className="inline-flex items-center gap-1.5 rounded-full border border-border px-2 py-0.5 text-[11px] font-mono">
                 <span className="h-2 w-2 rounded-full" style={{ background: SWEEP_COLORS[i % SWEEP_COLORS.length] }} />
                 {meta.fmt(v.val)}
               </span>
@@ -223,7 +319,7 @@ export const MotorDataTab = ({ params }: Props) => {
                   formatter={(v: number) => v.toFixed(3)} />
                 <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" />
                 {sweepData.variants.map((v, i) => (
-                  <Line key={v.val} type="monotone" dataKey={`v${v.val}`}
+                  <Line key={`t-${v.val}-${i}`} type="monotone" dataKey={`v${v.val}`}
                     name={meta.fmt(v.val)}
                     stroke={SWEEP_COLORS[i % SWEEP_COLORS.length]}
                     strokeWidth={1.8} dot={false} isAnimationActive={false} />
@@ -243,7 +339,7 @@ export const MotorDataTab = ({ params }: Props) => {
                 <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }}
                   formatter={(v: number) => `${(+v).toFixed(2)} %`} />
                 {sweepData.variants.map((v, i) => (
-                  <Line key={v.val} type="monotone" dataKey={`v${v.val}`}
+                  <Line key={`e-${v.val}-${i}`} type="monotone" dataKey={`v${v.val}`}
                     name={meta.fmt(v.val)}
                     stroke={SWEEP_COLORS[i % SWEEP_COLORS.length]}
                     strokeWidth={1.8} dot={false} isAnimationActive={false} />
