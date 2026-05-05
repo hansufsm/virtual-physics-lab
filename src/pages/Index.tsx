@@ -76,6 +76,15 @@ const experiments = [
     description: "Torque em espira percorrida por corrente, curva T(ω), f.c.e.m. e eficiência.",
     href: "/experimentos/motor",
   },
+  {
+    id: "carga-em-campos",
+    available: true,
+    icon: Sparkles,
+    area: "Eletromagnetismo",
+    title: "Carga em campos E e B",
+    description: "Força de Lorentz: trajetórias em E, órbitas em B, seletor de velocidades e ciclotron.",
+    href: "/experimentos/carga-em-campos",
+  },
 ];
 
 const Index = () => {
@@ -128,7 +137,7 @@ const Index = () => {
 
           <dl className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-6 animate-fade-in">
             {[
-              { k: "8", v: "Experimentos ativos" },
+              { k: "9", v: "Experimentos ativos" },
               { k: "Open", v: "Próximos por vir" },
               { k: "Tempo real", v: "Cálculos físicos" },
               { k: "IA", v: "Assistente contextual" },

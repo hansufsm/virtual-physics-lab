@@ -586,3 +586,146 @@ export function dcMotorStep(
   const newTheta = (theta + newOmega * dt) % (2 * Math.PI);
   return { theta: newTheta, omega: newOmega, current: i, torque: tElec };
 }
+
+// ============================================================================
+// EXP-09 — Movimento de carga em campos E e B
+// ============================================================================
+
+export type ChargeMode = "eOnly" | "bOnly" | "selector" | "cyclotron";
+
+export interface ChargeParams {
+  mode: ChargeMode;
+  /** Carga em múltiplos da carga elementar (e = 1.602e-19 C). Pode ser negativo. */
+  chargeE: number;
+  /** Massa em múltiplos da massa do próton (mp = 1.6726e-27 kg). */
+  massP: number;
+  /** Velocidade inicial (m/s). Direção depende do modo. */
+  v0: number;
+  /** Campo elétrico (V/m), aplicado em ŷ (modo eOnly e selector). */
+  E: number;
+  /** Campo magnético (T), aplicado em ẑ (saindo do plano). */
+  B: number;
+  /** Para cyclotron: tensão pico entre os “Dees” (V). */
+  vDee: number;
+}
+
+export interface ChargeDerived {
+  q: number;       // C
+  m: number;       // kg
+  qOverM: number;  // C/kg
+  rGyro: number;   // m  (raio de Larmor)
+  fCyc: number;    // Hz (frequência ciclotrônica)
+  tCyc: number;    // s
+  vSelector: number; // m/s (E/B – velocidade que passa o seletor sem deflexão)
+  energyEv: number; // eV (energia cinética inicial)
+}
+
+const E_CHARGE = 1.602176634e-19;
+const M_PROTON = 1.67262192369e-27;
+
+export function computeChargeDerived(p: ChargeParams): ChargeDerived {
+  const q = p.chargeE * E_CHARGE;
+  const m = Math.max(1e-9, p.massP) * M_PROTON;
+  const absQ = Math.abs(q);
+  const B = Math.max(1e-12, Math.abs(p.B));
+  const rGyro = (m * Math.abs(p.v0)) / (absQ * B);
+  const fCyc = (absQ * B) / (2 * Math.PI * m);
+  const tCyc = 1 / Math.max(1e-30, fCyc);
+  const vSelector = p.B !== 0 ? p.E / p.B : 0;
+  const energyJ = 0.5 * m * p.v0 * p.v0;
+  const energyEv = energyJ / E_CHARGE;
+  return { q, m, qOverM: q / m, rGyro, fCyc, tCyc, vSelector, energyEv };
+}
+
+/**
+ * Integra a trajetória 2D (plano xy, B em ẑ) por RK4. Usa unidades SI.
+ * Para cyclotron, simula um "gap" central onde a partícula é acelerada em ±x
+ * com sinal acompanhando v_x (idealização do oscilador RF síncrono).
+ */
+export function integrateChargeTrajectory(
+  p: ChargeParams,
+  steps = 1500,
+  dtScale = 1,
+): { x: number[]; y: number[]; vx: number[]; vy: number[]; t: number[]; dt: number } {
+  const d = computeChargeDerived(p);
+  const q = d.q;
+  const m = d.m;
+
+  // dt baseado em ~1/200 de período ciclotrônico (ou tempo de travessia se B ≈ 0)
+  let dt: number;
+  if (Math.abs(p.B) > 1e-9) {
+    dt = (d.tCyc / 200) * dtScale;
+  } else {
+    // tempo para travessia de ~5x raio (ou 1 m se v0=0)
+    const v = Math.max(1, Math.abs(p.v0));
+    dt = (1 / v) * dtScale;
+  }
+
+  const x = new Float64Array(steps);
+  const y = new Float64Array(steps);
+  const vx = new Float64Array(steps);
+  const vy = new Float64Array(steps);
+  const t = new Float64Array(steps);
+
+  // Estado inicial conforme modo
+  let X = 0, Y = 0, VX = 0, VY = 0;
+  if (p.mode === "eOnly") {
+    VX = p.v0;        // v0 em x, E em y
+  } else if (p.mode === "bOnly") {
+    VX = p.v0;        // v0 em x, B em z → faz círculo
+    Y = -d.rGyro;     // centra trajetória na origem
+  } else if (p.mode === "selector") {
+    VX = p.v0;        // partícula entra em x, E e B perpendiculares
+  } else if (p.mode === "cyclotron") {
+    VX = p.v0;        // velocidade de injeção
+  }
+
+  const Bz = p.B;
+  const Ey = (p.mode === "eOnly" || p.mode === "selector") ? p.E : 0;
+  // Aceleração: a = (q/m)·(E + v × B);  com B = (0,0,Bz):  v×B = (vy·Bz, -vx·Bz, 0)
+  const accel = (vx_: number, vy_: number, atTime: number): [number, number] => {
+    let ax = (q / m) * (vy_ * Bz);
+    let ay = (q / m) * (Ey - vx_ * Bz);
+    if (p.mode === "cyclotron") {
+      // Gap em x ∈ [-gap, gap]; força impulsiva substituída por campo E_x sincronizado
+      const gap = 5e-3; // 5 mm
+      if (X > -gap && X < gap) {
+        const sign = vx_ >= 0 ? 1 : -1;
+        const Ex = (p.vDee / (2 * gap)) * sign; // V/m efetivo no gap
+        ax += (q / m) * Ex;
+      }
+    }
+    return [ax, ay];
+  };
+
+  for (let i = 0; i < steps; i++) {
+    x[i] = X; y[i] = Y; vx[i] = VX; vy[i] = VY; t[i] = i * dt;
+
+    // RK4
+    const [k1ax, k1ay] = accel(VX, VY, i * dt);
+    const k1vx = VX, k1vy = VY;
+
+    const [k2ax, k2ay] = accel(VX + 0.5 * dt * k1ax, VY + 0.5 * dt * k1ay, (i + 0.5) * dt);
+    const k2vx = VX + 0.5 * dt * k1ax, k2vy = VY + 0.5 * dt * k1ay;
+
+    const [k3ax, k3ay] = accel(VX + 0.5 * dt * k2ax, VY + 0.5 * dt * k2ay, (i + 0.5) * dt);
+    const k3vx = VX + 0.5 * dt * k2ax, k3vy = VY + 0.5 * dt * k2ay;
+
+    const [k4ax, k4ay] = accel(VX + dt * k3ax, VY + dt * k3ay, (i + 1) * dt);
+    const k4vx = VX + dt * k3ax, k4vy = VY + dt * k3ay;
+
+    X += (dt / 6) * (k1vx + 2 * k2vx + 2 * k3vx + k4vx);
+    Y += (dt / 6) * (k1vy + 2 * k2vy + 2 * k3vy + k4vy);
+    VX += (dt / 6) * (k1ax + 2 * k2ax + 2 * k3ax + k4ax);
+    VY += (dt / 6) * (k1ay + 2 * k2ay + 2 * k3ay + k4ay);
+  }
+
+  return {
+    x: Array.from(x),
+    y: Array.from(y),
+    vx: Array.from(vx),
+    vy: Array.from(vy),
+    t: Array.from(t),
+    dt,
+  };
+}
