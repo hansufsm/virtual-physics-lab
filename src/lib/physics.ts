@@ -729,3 +729,79 @@ export function integrateChargeTrajectory(
     dt,
   };
 }
+// ============================================================
+// EXP-10: Efeito Hall
+// ============================================================
+
+/** Tipo de portador de carga majoritário. */
+export type HallCarrier = "electron" | "hole";
+
+/** Material pré-definido com densidade de portadores típica (m^-3). */
+export type HallMaterial = "Cu" | "Al" | "Si-n" | "Si-p" | "Ge" | "GaAs" | "custom";
+
+export interface HallParams {
+  material: HallMaterial;
+  carrier: HallCarrier;
+  /** Densidade de portadores n (m^-3). */
+  n: number;
+  /** Corrente I (A). */
+  I: number;
+  /** Campo magnético B (T), aplicado em ẑ. */
+  B: number;
+  /** Espessura t da amostra (m), na direção de B. */
+  t: number;
+  /** Largura w da amostra (m), na direção da tensão Hall. */
+  w: number;
+  /** Comprimento L (m), na direção da corrente. */
+  L: number;
+  /** Mobilidade μ (m²/V·s) — usada para resistividade longitudinal. */
+  mobility: number;
+}
+
+export interface HallDerived {
+  q: number;            // C (sinal do portador)
+  rH: number;           // m³/C  (coeficiente de Hall  R_H = 1/(nq))
+  vDrift: number;       // m/s
+  jCurrent: number;     // A/m² (densidade de corrente)
+  eHall: number;        // V/m  (campo de Hall)
+  vHall: number;        // V    (tensão Hall)
+  hallAngle: number;    // rad  (tan θ_H = μB)
+  rhoXX: number;        // Ω·m  (resistividade longitudinal ≈ 1/(nqμ))
+  rhoXY: number;        // Ω·m  (resistividade Hall = R_H·B)
+  rXX: number;          // Ω    (resistência longitudinal R = ρ·L/(w·t))
+  sheetN: number;       // m^-2 (densidade superficial = n·t)
+}
+
+export const HALL_MATERIALS: Record<Exclude<HallMaterial, "custom">, { n: number; carrier: HallCarrier; mobility: number; label: string }> = {
+  "Cu":   { n: 8.5e28, carrier: "electron", mobility: 4.3e-3, label: "Cobre (Cu)" },
+  "Al":   { n: 1.8e29, carrier: "electron", mobility: 1.5e-3, label: "Alumínio (Al)" },
+  "Si-n": { n: 1.0e22, carrier: "electron", mobility: 0.135, label: "Silício tipo n" },
+  "Si-p": { n: 1.0e22, carrier: "hole",     mobility: 0.048, label: "Silício tipo p" },
+  "Ge":   { n: 2.4e19, carrier: "electron", mobility: 0.39,  label: "Germânio" },
+  "GaAs": { n: 5.0e22, carrier: "electron", mobility: 0.85,  label: "GaAs tipo n" },
+};
+
+export function computeHall(p: HallParams): HallDerived {
+  const q = (p.carrier === "electron" ? -1 : 1) * E_CHARGE;
+  const n = Math.max(1, p.n);
+  const t = Math.max(1e-9, p.t);
+  const w = Math.max(1e-9, p.w);
+  const L = Math.max(1e-9, p.L);
+  const A = w * t;
+  const j = p.I / A;
+  const vDrift = j / (n * Math.abs(q));
+  // R_H = 1/(n q); sinal segue o portador.
+  const rH = 1 / (n * q);
+  // V_H = R_H · I · B / t  (sinal preservado)
+  const vHall = (rH * p.I * p.B) / t;
+  const eHall = vHall / w;
+  const mu = Math.max(0, p.mobility);
+  const rhoXX = mu > 0 ? 1 / (n * Math.abs(q) * mu) : Infinity;
+  const rXX = isFinite(rhoXX) ? rhoXX * L / A : Infinity;
+  const rhoXY = rH * p.B;
+  const hallAngle = Math.atan(mu * p.B);
+  return {
+    q, rH, vDrift, jCurrent: j, eHall, vHall, hallAngle,
+    rhoXX, rhoXY, rXX, sheetN: n * t,
+  };
+}
