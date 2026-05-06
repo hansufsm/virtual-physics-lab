@@ -14,6 +14,7 @@ import TransformerExperiment from "./pages/TransformerExperiment.tsx";
 import RLCExperiment from "./pages/RLCExperiment.tsx";
 import MotorExperiment from "./pages/MotorExperiment.tsx";
 import ChargeExperiment from "./pages/ChargeExperiment.tsx";
+import HallExperiment from "./pages/HallExperiment.tsx";
 
 const queryClient = new QueryClient();
 
@@ -34,6 +35,7 @@ const App = () => (
           <Route path="/experimentos/rlc" element={<RLCExperiment />} />
           <Route path="/experimentos/motor" element={<MotorExperiment />} />
           <Route path="/experimentos/carga-em-campos" element={<ChargeExperiment />} />
+          <Route path="/experimentos/hall" element={<HallExperiment />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

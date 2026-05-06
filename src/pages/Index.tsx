@@ -85,6 +85,15 @@ const experiments = [
     description: "Força de Lorentz: trajetórias em E, órbitas em B, seletor de velocidades e ciclotron.",
     href: "/experimentos/carga-em-campos",
   },
+  {
+    id: "hall",
+    available: true,
+    icon: Magnet,
+    area: "Magnetotransporte",
+    title: "Efeito Hall",
+    description: "Tensão Hall em barra condutora: identifique portadores e meça densidade n e mobilidade μ.",
+    href: "/experimentos/hall",
+  },
 ];
 
 const Index = () => {
@@ -137,7 +146,7 @@ const Index = () => {
 
           <dl className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-6 animate-fade-in">
             {[
-              { k: "9", v: "Experimentos ativos" },
+              { k: "10", v: "Experimentos ativos" },
               { k: "Open", v: "Próximos por vir" },
               { k: "Tempo real", v: "Cálculos físicos" },
               { k: "IA", v: "Assistente contextual" },
