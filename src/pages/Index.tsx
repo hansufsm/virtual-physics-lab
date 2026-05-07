@@ -94,6 +94,15 @@ const experiments = [
     description: "Tensão Hall em barra condutora: identifique portadores e meça densidade n e mobilidade μ.",
     href: "/experimentos/hall",
   },
+  {
+    id: "ampere",
+    available: true,
+    icon: Magnet,
+    area: "Magnetostática",
+    title: "Lei de Ampère — fios e toroide",
+    description: "Campo de fio retilíneo, força entre dois fios paralelos e B confinado em um toroide.",
+    href: "/experimentos/ampere",
+  },
 ];
 
 const Index = () => {
@@ -147,6 +156,7 @@ const Index = () => {
           <dl className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-6 animate-fade-in">
             {[
               { k: "10", v: "Experimentos ativos" },
+
               { k: "Open", v: "Próximos por vir" },
               { k: "Tempo real", v: "Cálculos físicos" },
               { k: "IA", v: "Assistente contextual" },
