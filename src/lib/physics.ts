@@ -805,3 +805,88 @@ export function computeHall(p: HallParams): HallDerived {
     rhoXX, rhoXY, rXX, sheetN: n * t,
   };
 }
+
+// ===== Ampère's law: straight wires & toroid =====
+
+export type AmpereGeometry = "single" | "parallel" | "toroid";
+
+export interface AmpereParams {
+  geometry: AmpereGeometry;
+  I1: number;          // A — corrente do fio 1 (ou única, ou no toroide)
+  I2: number;          // A — corrente do fio 2 (sentido + paralelo, − antiparalelo)
+  separationCm: number;// cm — separação entre os dois fios paralelos (eixo x)
+  wireLengthM: number; // m — comprimento útil dos fios (para força total)
+  // Toroid
+  N: number;           // espiras do toroide
+  rMeanCm: number;     // raio médio do toroide (cm)
+  aMinorCm: number;    // raio menor da seção (cm)
+  // Probe point (cm) for single & parallel modes
+  probeXcm: number;
+  probeYcm: number;
+}
+
+export interface AmpereDerived {
+  bAtProbe: number;       // T (módulo do campo no ponto de prova)
+  bxAtProbe: number;      // T (componente x)
+  byAtProbe: number;      // T (componente y)
+  forcePerLength: number; // N/m — entre os dois fios (positivo = atrativa)
+  forceTotal: number;     // N — sobre o trecho L
+  bToroidInside: number;  // T — campo dentro do toroide (no raio médio)
+  bToroidOutside: number; // T — campo fora (≈0)
+  toroidRMin: number;     // m
+  toroidRMax: number;     // m
+}
+
+/** Campo magnético de um fio retilíneo infinito a distância d (m): B = µ0 I / (2π d). */
+export function bWireMag(I: number, d: number): number {
+  if (d <= 0) return 0;
+  return (MU_0 * Math.abs(I)) / (2 * Math.PI * d);
+}
+
+/** Componentes de B (T) em (x,y) m devido a fio em (xw,0) com corrente I no eixo +z. */
+export function bWireXY(I: number, xw: number, x: number, y: number): { bx: number; by: number } {
+  const dx = x - xw;
+  const dy = y;
+  const r2 = dx * dx + dy * dy;
+  if (r2 < 1e-12) return { bx: 0, by: 0 };
+  const k = (MU_0 * I) / (2 * Math.PI * r2);
+  // B = (µ0 I / 2π r²) (-y, x) para corrente em +z
+  return { bx: -k * dy, by: k * dx };
+}
+
+export function computeAmpere(p: AmpereParams): AmpereDerived {
+  const x = p.probeXcm * 1e-2;
+  const y = p.probeYcm * 1e-2;
+  let bx = 0, by = 0;
+
+  if (p.geometry === "single") {
+    const r = { ...bWireXY(p.I1, 0, x, y) };
+    bx += r.bx; by += r.by;
+  } else if (p.geometry === "parallel") {
+    const sep = p.separationCm * 1e-2;
+    const a = bWireXY(p.I1, -sep / 2, x, y);
+    const b = bWireXY(p.I2,  sep / 2, x, y);
+    bx = a.bx + b.bx;
+    by = a.by + b.by;
+  }
+
+  const sep = Math.max(1e-4, p.separationCm * 1e-2);
+  // F/L = µ0 I1 I2 / (2π d). Atrativo se mesmo sentido (I1*I2 > 0)
+  const fOverL = (MU_0 * p.I1 * p.I2) / (2 * Math.PI * sep);
+  const fTotal = fOverL * Math.max(0, p.wireLengthM);
+
+  const rMean = Math.max(1e-4, p.rMeanCm * 1e-2);
+  const bToroidInside = (MU_0 * p.N * Math.abs(p.I1)) / (2 * Math.PI * rMean);
+
+  return {
+    bAtProbe: Math.hypot(bx, by),
+    bxAtProbe: bx,
+    byAtProbe: by,
+    forcePerLength: fOverL,
+    forceTotal: fTotal,
+    bToroidInside,
+    bToroidOutside: 0,
+    toroidRMin: rMean - p.aMinorCm * 1e-2,
+    toroidRMax: rMean + p.aMinorCm * 1e-2,
+  };
+}
