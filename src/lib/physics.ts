@@ -890,3 +890,103 @@ export function computeAmpere(p: AmpereParams): AmpereDerived {
     toroidRMax: rMean + p.aMinorCm * 1e-2,
   };
 }
+
+// ============================================================
+// EXP-12 — Lei de Gauss / fluxo elétrico
+// ============================================================
+
+export type GaussGeometry = "point" | "sphere" | "line" | "plane";
+export type GaussSurface = "sphere" | "cylinder" | "pillbox";
+
+export interface GaussParams {
+  geometry: GaussGeometry;     // distribuição de carga-fonte
+  // Source magnitudes
+  Q: number;          // C — carga total (point/sphere)
+  sourceRadiusCm: number; // cm — raio da esfera carregada (apenas sphere)
+  lambda: number;     // C/m — densidade linear (line)
+  sigma: number;      // C/m² — densidade superficial (plane)
+  // Gaussian surface
+  surface: GaussSurface;
+  surfaceRadiusCm: number;  // cm — raio da gaussiana (sphere/cylinder/pillbox)
+  surfaceLengthCm: number;  // cm — comprimento (cylinder) ou espessura virtual (pillbox)
+  // Probe distance for plotting E(r)
+  probeRcm: number;   // cm
+}
+
+export interface GaussDerived {
+  E: number;            // V/m — campo no ponto de prova (radial ou normal)
+  Qenc: number;         // C — carga interna à superfície gaussiana
+  flux: number;         // V·m — fluxo total Φ = Qenc/ε0
+  fluxFromArea: number; // V·m — fluxo via E·A (verificação)
+  area: number;         // m² — área da superfície gaussiana relevante
+}
+
+/** Carga interna à gaussiana, dada a geometria-fonte e a superfície escolhida. */
+export function gaussEnclosed(p: GaussParams): number {
+  const rs = p.surfaceRadiusCm * 1e-2;
+  const Ls = p.surfaceLengthCm * 1e-2;
+  switch (p.geometry) {
+    case "point":
+      return p.Q;
+    case "sphere": {
+      const R = Math.max(1e-6, p.sourceRadiusCm * 1e-2);
+      if (p.surface !== "sphere") return p.Q; // assume gaussiana envolve toda a esfera
+      if (rs >= R) return p.Q;
+      // densidade volumétrica uniforme ρ = Q / (4/3 π R³)
+      return p.Q * (rs ** 3) / (R ** 3);
+    }
+    case "line": {
+      // Gaussiana cilíndrica de raio rs, comprimento Ls envolve λ·Ls
+      if (p.surface !== "cylinder") return p.lambda * Ls;
+      return p.lambda * Ls;
+    }
+    case "plane": {
+      // Pillbox de área A = π rs² atravessa o plano: Qenc = σ·A
+      const A = Math.PI * rs * rs;
+      return p.sigma * A;
+    }
+  }
+}
+
+/** Área "relevante" da gaussiana para Φ = E·A (faces onde E é não nulo e perpendicular). */
+export function gaussArea(p: GaussParams): number {
+  const rs = Math.max(1e-6, p.surfaceRadiusCm * 1e-2);
+  const Ls = Math.max(1e-6, p.surfaceLengthCm * 1e-2);
+  if (p.surface === "sphere") return 4 * Math.PI * rs * rs;
+  if (p.surface === "cylinder") return 2 * Math.PI * rs * Ls; // lateral
+  // pillbox: 2 faces (uma de cada lado do plano)
+  return 2 * Math.PI * rs * rs;
+}
+
+/** Campo elétrico no ponto de prova (módulo) — radial / normal conforme a geometria. */
+export function gaussField(p: GaussParams): number {
+  const r = Math.max(1e-6, p.probeRcm * 1e-2);
+  const k = 1 / (4 * Math.PI * EPSILON_0);
+  switch (p.geometry) {
+    case "point":
+      return (k * Math.abs(p.Q)) / (r * r);
+    case "sphere": {
+      const R = Math.max(1e-6, p.sourceRadiusCm * 1e-2);
+      if (r >= R) return (k * Math.abs(p.Q)) / (r * r);
+      // dentro: E = k Q r / R³
+      return (k * Math.abs(p.Q) * r) / (R ** 3);
+    }
+    case "line":
+      return Math.abs(p.lambda) / (2 * Math.PI * EPSILON_0 * r);
+    case "plane":
+      return Math.abs(p.sigma) / (2 * EPSILON_0);
+  }
+}
+
+export function computeGauss(p: GaussParams): GaussDerived {
+  const Qenc = gaussEnclosed(p);
+  const flux = Qenc / EPSILON_0;
+  const E = gaussField(p);
+  const A = gaussArea(p);
+  // Fluxo via E·A (assume E uniforme nas faces relevantes — válido por simetria nas configs canônicas)
+  // Para amostragem coerente, avalia E na própria superfície (r = surfaceRadius).
+  const probe: GaussParams = { ...p, probeRcm: p.surfaceRadiusCm };
+  const Eat = gaussField(probe) * Math.sign(Qenc || 1);
+  const fluxFromArea = Eat * A;
+  return { E, Qenc, flux, fluxFromArea, area: A };
+}
