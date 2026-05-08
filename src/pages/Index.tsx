@@ -103,6 +103,15 @@ const experiments = [
     description: "Campo de fio retilíneo, força entre dois fios paralelos e B confinado em um toroide.",
     href: "/experimentos/ampere",
   },
+  {
+    id: "gauss",
+    available: true,
+    icon: Sparkles,
+    area: "Eletrostática",
+    title: "Lei de Gauss — fluxo elétrico",
+    description: "Carga pontual, esfera, fio e plano: aplique gaussianas e verifique Φ = Q_enc/ε₀.",
+    href: "/experimentos/gauss",
+  },
 ];
 
 const Index = () => {
@@ -155,7 +164,7 @@ const Index = () => {
 
           <dl className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-6 animate-fade-in">
             {[
-              { k: "11", v: "Experimentos ativos" },
+              { k: "12", v: "Experimentos ativos" },
               { k: "Open", v: "Próximos por vir" },
               { k: "Tempo real", v: "Cálculos físicos" },
               { k: "IA", v: "Assistente contextual" },
