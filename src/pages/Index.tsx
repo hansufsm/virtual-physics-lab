@@ -112,6 +112,15 @@ const experiments = [
     description: "Carga pontual, esfera, fio e plano: aplique gaussianas e verifique Φ = Q_enc/ε₀.",
     href: "/experimentos/gauss",
   },
+  {
+    id: "dipolo",
+    available: true,
+    icon: Sparkles,
+    area: "Eletrostática",
+    title: "Dipolo elétrico e torque",
+    description: "Torque τ = p × E, energia U = −p·E, oscilação em campo externo e campo do dipolo (1/r³).",
+    href: "/experimentos/dipolo",
+  },
 ];
 
 const Index = () => {
@@ -164,7 +173,7 @@ const Index = () => {
 
           <dl className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-6 animate-fade-in">
             {[
-              { k: "12", v: "Experimentos ativos" },
+            { k: "13", v: "Experimentos ativos" },
               { k: "Open", v: "Próximos por vir" },
               { k: "Tempo real", v: "Cálculos físicos" },
               { k: "IA", v: "Assistente contextual" },
