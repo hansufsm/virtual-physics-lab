@@ -17,6 +17,7 @@ import ChargeExperiment from "./pages/ChargeExperiment.tsx";
 import HallExperiment from "./pages/HallExperiment.tsx";
 import AmpereExperiment from "./pages/AmpereExperiment.tsx";
 import GaussExperiment from "./pages/GaussExperiment.tsx";
+import DipoleExperiment from "./pages/DipoleExperiment.tsx";
 
 const queryClient = new QueryClient();
 
@@ -40,6 +41,7 @@ const App = () => (
           <Route path="/experimentos/hall" element={<HallExperiment />} />
           <Route path="/experimentos/ampere" element={<AmpereExperiment />} />
           <Route path="/experimentos/gauss" element={<GaussExperiment />} />
+          <Route path="/experimentos/dipolo" element={<DipoleExperiment />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
