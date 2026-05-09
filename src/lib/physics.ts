@@ -990,3 +990,62 @@ export function computeGauss(p: GaussParams): GaussDerived {
   const fluxFromArea = Eat * A;
   return { E, Qenc, flux, fluxFromArea, area: A };
 }
+
+// ============================================================
+// Dipolo elétrico em campo externo
+// ============================================================
+export type DipoleMode = "field" | "torque";
+
+export interface DipoleParams {
+  mode: DipoleMode;
+  qNc: number;          // nC — carga (módulo) das duas cargas (+q, -q)
+  dCm: number;          // cm — separação entre as cargas
+  Eext: number;         // V/m — campo externo uniforme (eixo x)
+  thetaDeg: number;     // graus — ângulo entre p e Eext
+  massMg: number;       // mg — massa de cada carga (para período de oscilação)
+  probeXcm: number;     // cm — ponto de prova (modo field)
+  probeYcm: number;     // cm
+}
+
+export interface DipoleDerived {
+  p: number;            // C·m — módulo do momento de dipolo
+  torque: number;       // N·m — τ = p·E·sinθ
+  energy: number;       // J   — U = -p·E·cosθ
+  forceNet: number;     // N   — força resultante (0 em campo uniforme)
+  period: number;       // s   — período de pequenas oscilações em torno de θ=0
+  Ex: number;           // V/m — campo do dipolo no ponto de prova (componente x)
+  Ey: number;           // V/m — componente y
+  Emag: number;         // V/m — módulo do campo no ponto
+  rCm: number;          // cm  — distância do centro do dipolo ao ponto
+}
+
+export function computeDipole(p: DipoleParams): DipoleDerived {
+  const k = 1 / (4 * Math.PI * EPSILON_0);
+  const q = p.qNc * 1e-9;
+  const d = Math.max(1e-6, p.dCm * 1e-2);
+  const pmag = Math.abs(q) * d;
+  const theta = (p.thetaDeg * Math.PI) / 180;
+  const torque = pmag * p.Eext * Math.sin(theta);
+  const energy = -pmag * p.Eext * Math.cos(theta);
+  // Momento de inércia de duas massas iguais a r=d/2 do centro: I = 2·m·(d/2)² = m·d²/2
+  const m = Math.max(1e-12, p.massMg * 1e-6); // kg
+  const I = m * d * d / 2;
+  const k_torsion = pmag * Math.abs(p.Eext); // dτ/dθ ≈ p·E em torno de θ=0
+  const period = k_torsion > 0 ? 2 * Math.PI * Math.sqrt(I / k_torsion) : Infinity;
+
+  // Campo do dipolo no ponto de prova. Dipolo com p = q·d ao longo do eixo do dipolo,
+  // que está rotacionado por θ a partir do eixo +x (mesma convenção do Eext em x).
+  // Posicionamos +q em +d/2 ao longo do eixo do dipolo, -q em -d/2.
+  const ux = Math.cos(theta), uy = Math.sin(theta);
+  const x = p.probeXcm * 1e-2;
+  const y = p.probeYcm * 1e-2;
+  const xp = x - (d / 2) * ux, yp = y - (d / 2) * uy;
+  const xn = x + (d / 2) * ux, yn = y + (d / 2) * uy;
+  const rp = Math.max(1e-6, Math.hypot(xp, yp));
+  const rn = Math.max(1e-6, Math.hypot(xn, yn));
+  const Ex = k * q * (xp / rp ** 3 - xn / rn ** 3);
+  const Ey = k * q * (yp / rp ** 3 - yn / rn ** 3);
+  const Emag = Math.hypot(Ex, Ey);
+  const rCm = Math.hypot(p.probeXcm, p.probeYcm);
+  return { p: pmag, torque, energy, forceNet: 0, period, Ex, Ey, Emag, rCm };
+}
