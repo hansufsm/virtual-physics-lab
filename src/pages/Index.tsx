@@ -121,6 +121,15 @@ const experiments = [
     description: "Torque τ = p × E, energia U = −p·E, oscilação em campo externo e campo do dipolo (1/r³).",
     href: "/experimentos/dipolo",
   },
+  {
+    id: "potencial",
+    available: true,
+    icon: Sparkles,
+    area: "Eletrostática",
+    title: "Potencial elétrico e equipotenciais",
+    description: "V(r) por superposição, mapas de equipotenciais e relação E = −∇V em distribuições típicas.",
+    href: "/experimentos/potencial",
+  },
 ];
 
 const Index = () => {
@@ -173,7 +182,7 @@ const Index = () => {
 
           <dl className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-6 animate-fade-in">
             {[
-            { k: "13", v: "Experimentos ativos" },
+            { k: "14", v: "Experimentos ativos" },
               { k: "Open", v: "Próximos por vir" },
               { k: "Tempo real", v: "Cálculos físicos" },
               { k: "IA", v: "Assistente contextual" },
