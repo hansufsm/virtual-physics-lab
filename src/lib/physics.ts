@@ -1049,3 +1049,87 @@ export function computeDipole(p: DipoleParams): DipoleDerived {
   const rCm = Math.hypot(p.probeXcm, p.probeYcm);
   return { p: pmag, torque, energy, forceNet: 0, period, Ex, Ey, Emag, rCm };
 }
+
+// ============================================================
+// Potencial elétrico e equipotenciais
+// ============================================================
+export type PotentialPreset = "single" | "dipole" | "twoEqual" | "quadrupole";
+
+export interface PointCharge { x: number; y: number; q: number } // m, m, C
+
+export interface PotentialParams {
+  preset: PotentialPreset;
+  qNc: number;        // nC — magnitude base de cada carga
+  sepCm: number;      // cm — separação característica
+  probeXcm: number;
+  probeYcm: number;
+  showField: boolean; // mostrar setas de E
+  showEquip: boolean; // mostrar equipotenciais
+  numLevels: number;  // nº de equipotenciais por sinal
+}
+
+export interface PotentialDerived {
+  V: number;          // V no ponto de prova
+  Ex: number;         // V/m
+  Ey: number;
+  Emag: number;
+  charges: PointCharge[];
+}
+
+export function buildCharges(p: PotentialParams): PointCharge[] {
+  const q = p.qNc * 1e-9;
+  const s = Math.max(1e-4, p.sepCm * 1e-2);
+  switch (p.preset) {
+    case "single":
+      return [{ x: 0, y: 0, q }];
+    case "dipole":
+      return [
+        { x: -s / 2, y: 0, q: +q },
+        { x: +s / 2, y: 0, q: -q },
+      ];
+    case "twoEqual":
+      return [
+        { x: -s / 2, y: 0, q: +q },
+        { x: +s / 2, y: 0, q: +q },
+      ];
+    case "quadrupole":
+      return [
+        { x: -s / 2, y: -s / 2, q: +q },
+        { x: +s / 2, y: +s / 2, q: +q },
+        { x: -s / 2, y: +s / 2, q: -q },
+        { x: +s / 2, y: -s / 2, q: -q },
+      ];
+  }
+}
+
+export function potentialAt(charges: PointCharge[], x: number, y: number): number {
+  const k = 1 / (4 * Math.PI * EPSILON_0);
+  let V = 0;
+  for (const c of charges) {
+    const r = Math.hypot(x - c.x, y - c.y);
+    if (r < 1e-4) continue;
+    V += (k * c.q) / r;
+  }
+  return V;
+}
+
+export function fieldAt(charges: PointCharge[], x: number, y: number): { Ex: number; Ey: number } {
+  const k = 1 / (4 * Math.PI * EPSILON_0);
+  let Ex = 0, Ey = 0;
+  for (const c of charges) {
+    const dx = x - c.x, dy = y - c.y;
+    const r = Math.hypot(dx, dy);
+    if (r < 1e-4) continue;
+    const f = (k * c.q) / (r * r * r);
+    Ex += f * dx; Ey += f * dy;
+  }
+  return { Ex, Ey };
+}
+
+export function computePotential(p: PotentialParams): PotentialDerived {
+  const charges = buildCharges(p);
+  const x = p.probeXcm * 1e-2, y = p.probeYcm * 1e-2;
+  const V = potentialAt(charges, x, y);
+  const { Ex, Ey } = fieldAt(charges, x, y);
+  return { V, Ex, Ey, Emag: Math.hypot(Ex, Ey), charges };
+}
