@@ -130,6 +130,15 @@ const experiments = [
     description: "V(r) por superposição, mapas de equipotenciais e relação E = −∇V em distribuições típicas.",
     href: "/experimentos/potencial",
   },
+  {
+    id: "fenda-dupla",
+    available: true,
+    icon: Sparkles,
+    area: "Óptica ondulatória",
+    title: "Difração e interferência (fenda dupla)",
+    description: "Padrão de Young modulado por sinc²: varie λ, d, a e N e transite entre fenda única, dupla e rede.",
+    href: "/experimentos/fenda-dupla",
+  },
 ];
 
 const Index = () => {
@@ -182,7 +191,7 @@ const Index = () => {
 
           <dl className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-6 animate-fade-in">
             {[
-            { k: "14", v: "Experimentos ativos" },
+            { k: "15", v: "Experimentos ativos" },
               { k: "Open", v: "Próximos por vir" },
               { k: "Tempo real", v: "Cálculos físicos" },
               { k: "IA", v: "Assistente contextual" },
