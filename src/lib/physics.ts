@@ -1133,3 +1133,86 @@ export function computePotential(p: PotentialParams): PotentialDerived {
   const { Ex, Ey } = fieldAt(charges, x, y);
   return { V, Ex, Ey, Emag: Math.hypot(Ex, Ey), charges };
 }
+
+// ===== Double-slit diffraction & interference =====
+
+export interface DoubleSlitParams {
+  wavelengthNm: number;   // λ in nm
+  slitSepUm: number;      // d in µm (center-to-center)
+  slitWidthUm: number;    // a in µm
+  screenDistanceM: number;// L in meters
+  numSlits: number;       // N (1 = single slit, 2 = Young, >2 = grating)
+  showEnvelope: boolean;  // overlay single-slit envelope
+  probeMm: number;        // y on screen in mm
+}
+
+export interface DoubleSlitDerived {
+  fringeSpacingMm: number;    // Δy = λL/d (small angle)
+  centralWidthMm: number;     // 2 λ L / a (single-slit central peak full width)
+  intensityAtProbe: number;   // normalized [0..1]
+  angleAtProbeRad: number;
+  firstMaxOrder: number;      // largest m with d sinθ ≤ d (i.e., |m| ≤ d/λ)
+  numVisibleFringes: number;  // fringes inside central envelope (~ 2 d/a − 1)
+}
+
+/** Normalized intensity I(θ)/I₀ for N coherent equal slits of width a, separation d.
+ *  I(θ) = [sin(Nφ)/Nsinφ]² · [sin(α)/α]²,
+ *  with α = π a sinθ / λ, φ = π d sinθ / λ.
+ */
+export function dsIntensity(theta: number, lambda: number, a: number, d: number, N: number): number {
+  const s = Math.sin(theta);
+  const alpha = (Math.PI * a * s) / lambda;
+  const phi = (Math.PI * d * s) / lambda;
+  const single = Math.abs(alpha) < 1e-9 ? 1 : Math.pow(Math.sin(alpha) / alpha, 2);
+  let multi = 1;
+  if (N > 1) {
+    const denom = Math.sin(phi);
+    multi = Math.abs(denom) < 1e-9
+      ? 1
+      : Math.pow(Math.sin(N * phi) / (N * denom), 2);
+  }
+  return single * multi;
+}
+
+/** Single-slit envelope only (for overlay). */
+export function dsEnvelope(theta: number, lambda: number, a: number): number {
+  const alpha = (Math.PI * a * Math.sin(theta)) / lambda;
+  return Math.abs(alpha) < 1e-9 ? 1 : Math.pow(Math.sin(alpha) / alpha, 2);
+}
+
+export function computeDoubleSlit(p: DoubleSlitParams): DoubleSlitDerived {
+  const lambda = p.wavelengthNm * 1e-9;
+  const a = p.slitWidthUm * 1e-6;
+  const d = p.slitSepUm * 1e-6;
+  const L = p.screenDistanceM;
+  const N = Math.max(1, Math.round(p.numSlits));
+  const yProbe = p.probeMm * 1e-3;
+  const theta = Math.atan2(yProbe, L);
+  const I = N > 1 ? dsIntensity(theta, lambda, a, d, N) : dsEnvelope(theta, lambda, a);
+  const fringe = (lambda * L) / d;
+  const centralWidth = (2 * lambda * L) / a;
+  return {
+    fringeSpacingMm: fringe * 1e3,
+    centralWidthMm: centralWidth * 1e3,
+    intensityAtProbe: I,
+    angleAtProbeRad: theta,
+    firstMaxOrder: Math.floor(d / lambda),
+    numVisibleFringes: Math.max(1, 2 * Math.floor(d / a) - 1),
+  };
+}
+
+/** Approximate visible-light wavelength → sRGB color (for canvas rendering). */
+export function wavelengthToRgb(nm: number): [number, number, number] {
+  let r = 0, g = 0, b = 0;
+  if (nm >= 380 && nm < 440) { r = -(nm - 440) / 60; b = 1; }
+  else if (nm < 490) { g = (nm - 440) / 50; b = 1; }
+  else if (nm < 510) { g = 1; b = -(nm - 510) / 20; }
+  else if (nm < 580) { r = (nm - 510) / 70; g = 1; }
+  else if (nm < 645) { r = 1; g = -(nm - 645) / 65; }
+  else if (nm <= 780) { r = 1; }
+  let factor = 1;
+  if (nm < 420) factor = 0.3 + 0.7 * (nm - 380) / 40;
+  else if (nm > 700) factor = 0.3 + 0.7 * (780 - nm) / 80;
+  const adj = (c: number) => Math.round(255 * Math.pow(Math.max(0, c) * factor, 0.8));
+  return [adj(r), adj(g), adj(b)];
+}
