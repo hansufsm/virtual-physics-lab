@@ -1216,3 +1216,124 @@ export function wavelengthToRgb(nm: number): [number, number, number] {
   const adj = (c: number) => Math.round(255 * Math.pow(Math.max(0, c) * factor, 0.8));
   return [adj(r), adj(g), adj(b)];
 }
+
+// ===== Projectile motion (with optional drag) =====
+
+export const GRAVITY: Record<string, number> = {
+  "Terra": 9.80665,
+  "Lua": 1.62,
+  "Marte": 3.711,
+  "Júpiter": 24.79,
+  "Sem gravidade": 0,
+};
+
+export type DragModel = "none" | "linear" | "quadratic";
+
+export interface ProjectileParams {
+  speed: number;        // m/s — initial speed v0
+  angleDeg: number;     // launch angle in degrees
+  height: number;       // m — initial height h0
+  mass: number;         // kg
+  gravity: number;      // m/s² (positive value, applied as -g)
+  drag: DragModel;
+  dragCoef: number;     // for linear: b (kg/s); for quadratic: c (kg/m). Effective only if drag != none
+}
+
+export interface ProjectilePoint { t: number; x: number; y: number; vx: number; vy: number }
+
+export interface ProjectileResults {
+  trajectory: ProjectilePoint[];
+  range: number;          // m (x at impact)
+  maxHeight: number;      // m
+  flightTime: number;     // s
+  impactSpeed: number;    // m/s
+  impactAngleDeg: number; // ° (below horizontal, positive)
+  apexTime: number;       // s
+  // Vacuum reference values (no drag) for comparison
+  vacuumRange: number;
+  vacuumMaxHeight: number;
+  vacuumFlightTime: number;
+}
+
+/** Numerical integrator (RK4) for projectile with optional drag. Returns full trajectory. */
+export function simulateProjectile(p: ProjectileParams): ProjectileResults {
+  const rad = (p.angleDeg * Math.PI) / 180;
+  const vx0 = p.speed * Math.cos(rad);
+  const vy0 = p.speed * Math.sin(rad);
+  const g = Math.max(0, p.gravity);
+  const m = Math.max(1e-6, p.mass);
+
+  const accel = (vx: number, vy: number): [number, number] => {
+    let ax = 0, ay = -g;
+    if (p.drag === "linear" && p.dragCoef > 0) {
+      ax += -(p.dragCoef / m) * vx;
+      ay += -(p.dragCoef / m) * vy;
+    } else if (p.drag === "quadratic" && p.dragCoef > 0) {
+      const v = Math.hypot(vx, vy);
+      ax += -(p.dragCoef / m) * v * vx;
+      ay += -(p.dragCoef / m) * v * vy;
+    }
+    return [ax, ay];
+  };
+
+  // Adaptive-ish dt based on flight scale
+  const tVacuum = (vy0 + Math.sqrt(vy0 * vy0 + 2 * g * Math.max(0, p.height))) / Math.max(g, 1e-6);
+  const dt = Math.max(1e-4, Math.min(0.02, (g > 0 ? tVacuum : 10) / 1500));
+  const tMax = (g > 0 ? tVacuum : 10) * 4 + 5;
+
+  const traj: ProjectilePoint[] = [];
+  let t = 0, x = 0, y = p.height, vx = vx0, vy = vy0;
+  let maxY = y, apexT = 0;
+  traj.push({ t, x, y, vx, vy });
+
+  while (t < tMax) {
+    const [k1ax, k1ay] = accel(vx, vy);
+    const [k2ax, k2ay] = accel(vx + 0.5 * dt * k1ax, vy + 0.5 * dt * k1ay);
+    const [k3ax, k3ay] = accel(vx + 0.5 * dt * k2ax, vy + 0.5 * dt * k2ay);
+    const [k4ax, k4ay] = accel(vx + dt * k3ax, vy + dt * k3ay);
+    const nvx = vx + (dt / 6) * (k1ax + 2 * k2ax + 2 * k3ax + k4ax);
+    const nvy = vy + (dt / 6) * (k1ay + 2 * k2ay + 2 * k3ay + k4ay);
+    const nx = x + (dt / 6) * (vx + 2 * (vx + 0.5 * dt * k1ax) + 2 * (vx + 0.5 * dt * k2ax) + (vx + dt * k3ax));
+    const ny = y + (dt / 6) * (vy + 2 * (vy + 0.5 * dt * k1ay) + 2 * (vy + 0.5 * dt * k2ay) + (vy + dt * k3ay));
+
+    if (ny <= 0 && y > 0) {
+      // Linear interpolation to ground
+      const frac = y / (y - ny);
+      const tImp = t + frac * dt;
+      const xImp = x + frac * (nx - x);
+      const vxImp = vx + frac * (nvx - vx);
+      const vyImp = vy + frac * (nvy - vy);
+      traj.push({ t: tImp, x: xImp, y: 0, vx: vxImp, vy: vyImp });
+      x = xImp; y = 0; vx = vxImp; vy = vyImp; t = tImp;
+      break;
+    }
+    x = nx; y = ny; vx = nvx; vy = nvy; t += dt;
+    if (y > maxY) { maxY = y; apexT = t; }
+    traj.push({ t, x, y, vx, vy });
+    if (g === 0 && x > 1e6) break;
+  }
+
+  const last = traj[traj.length - 1];
+  const impactSpeed = Math.hypot(last.vx, last.vy);
+  const impactAngleDeg = (Math.atan2(-last.vy, Math.abs(last.vx)) * 180) / Math.PI;
+
+  // Vacuum reference (analytical)
+  const vTflight = g > 0
+    ? (vy0 + Math.sqrt(vy0 * vy0 + 2 * g * Math.max(0, p.height))) / g
+    : 0;
+  const vRange = vx0 * vTflight;
+  const vMaxH = p.height + (vy0 > 0 ? (vy0 * vy0) / (2 * Math.max(g, 1e-9)) : 0);
+
+  return {
+    trajectory: traj,
+    range: last.x,
+    maxHeight: maxY,
+    flightTime: last.t,
+    impactSpeed,
+    impactAngleDeg,
+    apexTime: apexT,
+    vacuumRange: vRange,
+    vacuumMaxHeight: vMaxH,
+    vacuumFlightTime: vTflight,
+  };
+}
