@@ -20,6 +20,7 @@ import GaussExperiment from "./pages/GaussExperiment.tsx";
 import DipoleExperiment from "./pages/DipoleExperiment.tsx";
 import PotentialExperiment from "./pages/PotentialExperiment.tsx";
 import DoubleSlitExperiment from "./pages/DoubleSlitExperiment.tsx";
+import ProjectileExperiment from "./pages/ProjectileExperiment.tsx";
 
 const queryClient = new QueryClient();
 
@@ -46,6 +47,7 @@ const App = () => (
           <Route path="/experimentos/dipolo" element={<DipoleExperiment />} />
           <Route path="/experimentos/potencial" element={<PotentialExperiment />} />
           <Route path="/experimentos/fenda-dupla" element={<DoubleSlitExperiment />} />
+          <Route path="/experimentos/projeteis" element={<ProjectileExperiment />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
