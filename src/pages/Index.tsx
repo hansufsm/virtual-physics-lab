@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, Atom, Zap, Magnet, Activity, Sparkles, Lock } from "lucide-react";
+import { ArrowRight, Atom, Zap, Magnet, Activity, Sparkles, Lock, Rocket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -139,6 +139,15 @@ const experiments = [
     description: "Padrão de Young modulado por sinc²: varie λ, d, a e N e transite entre fenda única, dupla e rede.",
     href: "/experimentos/fenda-dupla",
   },
+  {
+    id: "projeteis",
+    available: true,
+    icon: Rocket,
+    area: "Mecânica",
+    title: "Lançamento de projéteis",
+    description: "Trajetória parabólica com gravidade ajustável e arrasto linear/quadrático; alcance, altura e tempo de voo.",
+    href: "/experimentos/projeteis",
+  },
 ];
 
 const Index = () => {
@@ -191,7 +200,7 @@ const Index = () => {
 
           <dl className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-6 animate-fade-in">
             {[
-            { k: "15", v: "Experimentos ativos" },
+            { k: "16", v: "Experimentos ativos" },
               { k: "Open", v: "Próximos por vir" },
               { k: "Tempo real", v: "Cálculos físicos" },
               { k: "IA", v: "Assistente contextual" },
