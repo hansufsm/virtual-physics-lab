@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, Atom, Zap, Magnet, Activity, Sparkles, Lock, Rocket } from "lucide-react";
+import { ArrowRight, Atom, Zap, Magnet, Activity, Sparkles, Lock, Rocket, Waves } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -148,6 +148,15 @@ const experiments = [
     description: "Trajetória parabólica com gravidade ajustável e arrasto linear/quadrático; alcance, altura e tempo de voo.",
     href: "/experimentos/projeteis",
   },
+  {
+    id: "pendulo",
+    available: true,
+    icon: Waves,
+    area: "Oscilações",
+    title: "Pêndulo simples e MHS",
+    description: "θ̈ + (g/L) sin θ = 0 com amortecimento: período, energia, espaço de fase e validação T = 2π√(L/g).",
+    href: "/experimentos/pendulo",
+  },
 ];
 
 const Index = () => {
@@ -200,7 +209,7 @@ const Index = () => {
 
           <dl className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-6 animate-fade-in">
             {[
-            { k: "16", v: "Experimentos ativos" },
+            { k: "17", v: "Experimentos ativos" },
               { k: "Open", v: "Próximos por vir" },
               { k: "Tempo real", v: "Cálculos físicos" },
               { k: "IA", v: "Assistente contextual" },

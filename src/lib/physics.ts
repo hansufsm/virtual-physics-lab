@@ -1337,3 +1337,118 @@ export function simulateProjectile(p: ProjectileParams): ProjectileResults {
     vacuumFlightTime: vTflight,
   };
 }
+
+// ===== Simple pendulum (linear + nonlinear, with damping) =====
+
+export interface PendulumParams {
+  length: number;         // L (m)
+  mass: number;           // m (kg)
+  gravity: number;        // g (m/s²)
+  angle0Deg: number;      // initial angular displacement θ₀ (degrees)
+  omega0: number;         // initial angular velocity θ̇₀ (rad/s)
+  damping: number;        // b (kg/s) — viscous torque coefficient (γ = b/m)
+  duration: number;       // total simulated time (s)
+  nonlinear: boolean;     // true: use sin θ ; false: small-angle approximation
+}
+
+export interface PendulumPoint {
+  t: number;
+  theta: number;          // rad
+  omega: number;          // rad/s
+  energy: number;         // J (referenced to lowest point)
+}
+
+export interface PendulumResults {
+  series: PendulumPoint[];
+  periodSmallAngle: number;   // T₀ = 2π√(L/g)
+  periodMeasured: number | null; // from zero crossings (rad sign change), null if undamped period not detectable
+  periodLargeAngle: number;   // T₀ · (1 + θ₀²/16) approximation
+  initialEnergy: number;
+  finalEnergy: number;
+  maxOmega: number;
+  amplitudeDeg: number;       // |θ₀| in degrees
+  qualityFactor: number | null; // Q = ω₀ m / b   (only when damping > 0)
+}
+
+export function simulatePendulum(p: PendulumParams): PendulumResults {
+  const L = Math.max(p.length, 1e-3);
+  const m = Math.max(p.mass, 1e-3);
+  const g = Math.max(p.gravity, 0);
+  const gamma = p.damping / m; // 1/s
+  const theta0 = (p.angle0Deg * Math.PI) / 180;
+  const w0Sys = Math.sqrt(g / L); // natural angular frequency
+
+  const energyOf = (th: number, om: number) => {
+    const Ek = 0.5 * m * L * L * om * om;
+    const Ep = p.nonlinear
+      ? m * g * L * (1 - Math.cos(th))
+      : 0.5 * m * g * L * th * th;
+    return Ek + Ep;
+  };
+
+  // RK4 integrator
+  const accel = (th: number, om: number) => {
+    const restoring = p.nonlinear ? -(g / L) * Math.sin(th) : -(g / L) * th;
+    return restoring - gamma * om;
+  };
+
+  const dt = Math.min(0.005, Math.max(1e-4, (2 * Math.PI) / w0Sys / 200));
+  const N = Math.max(10, Math.floor(p.duration / dt));
+  const series: PendulumPoint[] = [];
+  let th = theta0;
+  let om = p.omega0;
+  let t = 0;
+  let maxOm = Math.abs(om);
+  series.push({ t, theta: th, omega: om, energy: energyOf(th, om) });
+
+  // Track zero crossings of theta (with negative-going) for period
+  const crossings: number[] = [];
+  let prevTh = th;
+
+  for (let i = 0; i < N; i++) {
+    const k1th = om;
+    const k1om = accel(th, om);
+    const k2th = om + 0.5 * dt * k1om;
+    const k2om = accel(th + 0.5 * dt * k1th, om + 0.5 * dt * k1om);
+    const k3th = om + 0.5 * dt * k2om;
+    const k3om = accel(th + 0.5 * dt * k2th, om + 0.5 * dt * k2om);
+    const k4th = om + dt * k3om;
+    const k4om = accel(th + dt * k3th, om + dt * k3om);
+    const newTh = th + (dt / 6) * (k1th + 2 * k2th + 2 * k3th + k4th);
+    const newOm = om + (dt / 6) * (k1om + 2 * k2om + 2 * k3om + k4om);
+
+    // Detect sign change (positive -> negative crossing, full period between two such)
+    if (prevTh > 0 && newTh <= 0) {
+      const frac = prevTh / (prevTh - newTh);
+      crossings.push(t + frac * dt);
+    }
+    prevTh = newTh;
+
+    th = newTh; om = newOm; t += dt;
+    if (Math.abs(om) > maxOm) maxOm = Math.abs(om);
+    series.push({ t, theta: th, omega: om, energy: energyOf(th, om) });
+  }
+
+  const periodSmallAngle = (2 * Math.PI) / w0Sys;
+  const periodLargeAngle = periodSmallAngle * (1 + (theta0 * theta0) / 16);
+  let periodMeasured: number | null = null;
+  if (crossings.length >= 2) {
+    const diffs: number[] = [];
+    for (let i = 1; i < crossings.length; i++) diffs.push(crossings[i] - crossings[i - 1]);
+    periodMeasured = diffs.reduce((a, b) => a + b, 0) / diffs.length;
+  }
+
+  const qualityFactor = p.damping > 0 ? (w0Sys * m) / p.damping : null;
+
+  return {
+    series,
+    periodSmallAngle,
+    periodMeasured,
+    periodLargeAngle,
+    initialEnergy: series[0].energy,
+    finalEnergy: series[series.length - 1].energy,
+    maxOmega: maxOm,
+    amplitudeDeg: Math.abs(p.angle0Deg),
+    qualityFactor,
+  };
+}
