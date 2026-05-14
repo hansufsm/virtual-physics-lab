@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, Atom, Zap, Magnet, Activity, Sparkles, Lock, Rocket, Waves } from "lucide-react";
+import { ArrowRight, Atom, Zap, Magnet, Activity, Sparkles, Lock, Rocket, Waves, Thermometer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -157,6 +157,15 @@ const experiments = [
     description: "θ̈ + (g/L) sin θ = 0 com amortecimento: período, energia, espaço de fase e validação T = 2π√(L/g).",
     href: "/experimentos/pendulo",
   },
+  {
+    id: "gas-ideal",
+    available: true,
+    icon: Thermometer,
+    area: "Termodinâmica",
+    title: "Gás ideal — PVT",
+    description: "PV = nRT com processos isotérmico, isobárico, isocórico e adiabático: W, Q, ΔU e ΔS no diagrama P × V.",
+    href: "/experimentos/gas-ideal",
+  },
 ];
 
 const Index = () => {
@@ -209,7 +218,7 @@ const Index = () => {
 
           <dl className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-6 animate-fade-in">
             {[
-            { k: "17", v: "Experimentos ativos" },
+            { k: "18", v: "Experimentos ativos" },
               { k: "Open", v: "Próximos por vir" },
               { k: "Tempo real", v: "Cálculos físicos" },
               { k: "IA", v: "Assistente contextual" },
