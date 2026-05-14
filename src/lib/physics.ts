@@ -1452,3 +1452,149 @@ export function simulatePendulum(p: PendulumParams): PendulumResults {
     qualityFactor,
   };
 }
+
+// ===== Ideal gas (PVT) =====
+
+export const R_GAS = 8.314462618; // J/(mol·K)
+
+export type GasProcess = "isothermal" | "isobaric" | "isochoric" | "adiabatic";
+
+export interface IdealGasParams {
+  process: GasProcess;
+  moles: number;        // n (mol)
+  gamma: number;        // Cp/Cv (e.g. 5/3 monoatômico, 7/5 diatômico)
+  T1: number;           // K (estado inicial)
+  V1: number;           // L (estado inicial)
+  V2: number;           // L (estado final, usado em isotérmico/isobárico/adiabático)
+  T2: number;           // K (estado final, usado em isocórico)
+  steps: number;        // n° de pontos no caminho
+}
+
+export interface GasStatePoint { V: number; P: number; T: number }
+
+export interface IdealGasResults {
+  P1: number;           // Pa (calculado)
+  P2: number;           // Pa
+  T2: number;           // K (final, recalculado conforme processo)
+  V2: number;           // L (final, recalculado conforme processo)
+  work: number;         // J (W realizado pelo gás)
+  heat: number;         // J (Q absorvido pelo gás)
+  deltaU: number;       // J (variação de energia interna)
+  deltaS: number;       // J/K (variação de entropia)
+  cv: number;           // J/(mol·K)
+  cp: number;           // J/(mol·K)
+  path: GasStatePoint[];
+}
+
+// Volume in L → m³ conversion factor
+const L_TO_M3 = 1e-3;
+
+export function simulateIdealGas(p: IdealGasParams): IdealGasResults {
+  const n = Math.max(p.moles, 1e-6);
+  const gamma = Math.max(p.gamma, 1.01);
+  const cv = R_GAS / (gamma - 1);
+  const cp = cv + R_GAS;
+  const T1 = Math.max(p.T1, 1);
+  const V1m = Math.max(p.V1, 1e-6) * L_TO_M3;
+  const P1 = (n * R_GAS * T1) / V1m;
+
+  let V2m: number, T2: number, P2: number;
+
+  switch (p.process) {
+    case "isothermal": {
+      T2 = T1;
+      V2m = Math.max(p.V2, 1e-6) * L_TO_M3;
+      P2 = (n * R_GAS * T2) / V2m;
+      break;
+    }
+    case "isobaric": {
+      P2 = P1;
+      V2m = Math.max(p.V2, 1e-6) * L_TO_M3;
+      T2 = (P2 * V2m) / (n * R_GAS);
+      break;
+    }
+    case "isochoric": {
+      V2m = V1m;
+      T2 = Math.max(p.T2, 1);
+      P2 = (n * R_GAS * T2) / V2m;
+      break;
+    }
+    case "adiabatic": {
+      V2m = Math.max(p.V2, 1e-6) * L_TO_M3;
+      // PV^γ = const, TV^(γ-1) = const
+      P2 = P1 * Math.pow(V1m / V2m, gamma);
+      T2 = T1 * Math.pow(V1m / V2m, gamma - 1);
+      break;
+    }
+  }
+
+  // Trabalho, calor, ΔU, ΔS
+  let W = 0, Q = 0, dU = 0, dS = 0;
+  switch (p.process) {
+    case "isothermal":
+      W = n * R_GAS * T1 * Math.log(V2m / V1m);
+      Q = W;
+      dU = 0;
+      dS = n * R_GAS * Math.log(V2m / V1m);
+      break;
+    case "isobaric":
+      W = P1 * (V2m - V1m);
+      dU = n * cv * (T2 - T1);
+      Q = n * cp * (T2 - T1);
+      dS = n * cp * Math.log(T2 / T1);
+      break;
+    case "isochoric":
+      W = 0;
+      dU = n * cv * (T2 - T1);
+      Q = dU;
+      dS = n * cv * Math.log(T2 / T1);
+      break;
+    case "adiabatic":
+      W = (P1 * V1m - P2 * V2m) / (gamma - 1);
+      Q = 0;
+      dU = -W;
+      dS = 0;
+      break;
+  }
+
+  // Caminho no plano P–V (e T)
+  const N = Math.max(20, Math.min(400, p.steps | 0));
+  const path: GasStatePoint[] = [];
+  for (let i = 0; i <= N; i++) {
+    const s = i / N;
+    let Vm: number, Pp: number, Tp: number;
+    switch (p.process) {
+      case "isochoric": {
+        Vm = V1m;
+        Tp = T1 + s * (T2 - T1);
+        Pp = (n * R_GAS * Tp) / Vm;
+        break;
+      }
+      case "isothermal": {
+        Vm = V1m + s * (V2m - V1m);
+        Tp = T1;
+        Pp = (n * R_GAS * Tp) / Vm;
+        break;
+      }
+      case "isobaric": {
+        Vm = V1m + s * (V2m - V1m);
+        Pp = P1;
+        Tp = (Pp * Vm) / (n * R_GAS);
+        break;
+      }
+      case "adiabatic": {
+        Vm = V1m + s * (V2m - V1m);
+        Pp = P1 * Math.pow(V1m / Vm, gamma);
+        Tp = T1 * Math.pow(V1m / Vm, gamma - 1);
+        break;
+      }
+    }
+    path.push({ V: Vm / L_TO_M3, P: Pp, T: Tp });
+  }
+
+  return {
+    P1, P2, T2, V2: V2m / L_TO_M3,
+    work: W, heat: Q, deltaU: dU, deltaS: dS,
+    cv, cp, path,
+  };
+}
