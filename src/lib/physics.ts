@@ -1598,3 +1598,83 @@ export function simulateIdealGas(p: IdealGasParams): IdealGasResults {
     cv, cp, path,
   };
 }
+
+// ===== Thin lens / geometric optics =====
+
+export type LensShape = "biconvex" | "planoconvex" | "biconcave" | "planoconcave" | "custom";
+
+export interface ThinLensParams {
+  mode: "focal" | "lensmaker";   // como definir f
+  focalCm: number;                // f em cm (mode = focal). +converging, -diverging
+  shape: LensShape;
+  R1cm: number;                   // raio 1 em cm (modo lensmaker)
+  R2cm: number;                   // raio 2 em cm
+  nLens: number;                  // índice de refração do vidro
+  nMedium: number;                // índice do meio
+  objectDistanceCm: number;       // d_o (cm, positivo para objeto real à esquerda)
+  objectHeightCm: number;         // h_o (cm)
+}
+
+export interface ThinLensResults {
+  focalCm: number;                // f efetivo (cm)
+  imageDistanceCm: number | null; // d_i (cm) — null se objeto exatamente no foco
+  imageHeightCm: number | null;   // h_i (cm)
+  magnification: number | null;   // m = -d_i/d_o
+  imageType: "real" | "virtual" | "no-image";
+  orientation: "ereta" | "invertida" | "—";
+  size: "ampliada" | "reduzida" | "do mesmo tamanho" | "—";
+  power: number;                  // 1/f em dioptrias (f em metros)
+  isConverging: boolean;
+}
+
+export function computeThinLens(p: ThinLensParams): ThinLensResults {
+  // Determina f
+  let f: number;
+  if (p.mode === "focal") {
+    f = p.focalCm;
+  } else {
+    // 1/f = (n_lens/n_meio - 1) * (1/R1 - 1/R2)
+    const nrel = p.nLens / Math.max(p.nMedium, 1e-6) - 1;
+    const r1 = p.R1cm === 0 ? Infinity : p.R1cm;
+    const r2 = p.R2cm === 0 ? Infinity : p.R2cm;
+    const inv = nrel * (1 / r1 - 1 / r2);
+    f = inv === 0 ? Infinity : 1 / inv;
+  }
+
+  const dO = p.objectDistanceCm;
+  const ho = p.objectHeightCm;
+  let di: number | null = null;
+  let hi: number | null = null;
+  let m: number | null = null;
+  let imageType: ThinLensResults["imageType"] = "no-image";
+  let orientation: ThinLensResults["orientation"] = "—";
+  let size: ThinLensResults["size"] = "—";
+
+  if (Math.abs(dO - f) < 1e-6 || !isFinite(f)) {
+    // objeto no foco → imagem no infinito
+    imageType = "no-image";
+  } else if (dO !== 0) {
+    // 1/f = 1/dO + 1/di → di = 1 / (1/f - 1/dO)
+    di = 1 / (1 / f - 1 / dO);
+    m = -di / dO;
+    hi = m * ho;
+    imageType = di > 0 ? "real" : "virtual";
+    orientation = m < 0 ? "invertida" : "ereta";
+    const am = Math.abs(m);
+    size = am > 1.0001 ? "ampliada" : am < 0.9999 ? "reduzida" : "do mesmo tamanho";
+  }
+
+  const power = isFinite(f) && f !== 0 ? 1 / (f / 100) : 0; // dioptrias
+
+  return {
+    focalCm: f,
+    imageDistanceCm: di,
+    imageHeightCm: hi,
+    magnification: m,
+    imageType,
+    orientation,
+    size,
+    power,
+    isConverging: f > 0,
+  };
+}

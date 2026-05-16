@@ -23,6 +23,7 @@ import DoubleSlitExperiment from "./pages/DoubleSlitExperiment.tsx";
 import ProjectileExperiment from "./pages/ProjectileExperiment.tsx";
 import PendulumExperiment from "./pages/PendulumExperiment.tsx";
 import IdealGasExperiment from "./pages/IdealGasExperiment.tsx";
+import LensExperiment from "./pages/LensExperiment.tsx";
 
 const queryClient = new QueryClient();
 
@@ -52,6 +53,7 @@ const App = () => (
           <Route path="/experimentos/projeteis" element={<ProjectileExperiment />} />
           <Route path="/experimentos/pendulo" element={<PendulumExperiment />} />
           <Route path="/experimentos/gas-ideal" element={<IdealGasExperiment />} />
+          <Route path="/experimentos/lentes" element={<LensExperiment />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
