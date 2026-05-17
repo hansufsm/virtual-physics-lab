@@ -1678,3 +1678,88 @@ export function computeThinLens(p: ThinLensParams): ThinLensResults {
     isConverging: f > 0,
   };
 }
+
+// ===== 1D Collisions (linear momentum) =====
+
+export interface CollisionParams {
+  m1: number;        // kg
+  m2: number;        // kg
+  u1: number;        // m/s (velocidade inicial do corpo 1)
+  u2: number;        // m/s (velocidade inicial do corpo 2)
+  e: number;         // coeficiente de restituição (0..1)
+  x1_0: number;      // m (posição inicial do corpo 1)
+  x2_0: number;      // m (posição inicial do corpo 2)
+  r1: number;        // m (raio do corpo 1)
+  r2: number;        // m (raio do corpo 2)
+  duration: number;  // s
+}
+
+export interface CollisionResults {
+  v1: number; v2: number;                       // velocidades finais (após colisão)
+  p_before: number; p_after: number;            // momento total
+  ke_before: number; ke_after: number;          // energias cinéticas
+  ke_lost: number;                              // calor/deformação
+  vcm: number;                                  // velocidade do centro de massa
+  impulse: number;                              // J = m1·(v1-u1)
+  collisionTime: number | null;                 // s — quando ocorre o contato
+  collided: boolean;
+  series: { t: number; x1: number; x2: number; v1: number; v2: number; ke: number; p: number }[];
+}
+
+export function simulateCollision(p: CollisionParams): CollisionResults {
+  const { m1, m2, u1, u2, e, x1_0, x2_0, r1, r2, duration } = p;
+  const M = m1 + m2;
+  const vcm = (m1 * u1 + m2 * u2) / M;
+
+  // Velocidades pós-colisão (modelo 1D com coef. de restituição)
+  const v1f = ((m1 - e * m2) * u1 + (1 + e) * m2 * u2) / M;
+  const v2f = ((m2 - e * m1) * u2 + (1 + e) * m1 * u1) / M;
+
+  const p_before = m1 * u1 + m2 * u2;
+  const p_after = m1 * v1f + m2 * v2f;
+  const ke_before = 0.5 * m1 * u1 * u1 + 0.5 * m2 * u2 * u2;
+  const ke_after = 0.5 * m1 * v1f * v1f + 0.5 * m2 * v2f * v2f;
+
+  // Tempo até o contato: x1 + r1 + (u1)t == x2 - r2 + (u2)t → t = (x2 - x1 - r1 - r2)/(u1 - u2)
+  const gap = x2_0 - x1_0 - r1 - r2;
+  const rel = u1 - u2;
+  let tc: number | null = null;
+  if (rel > 1e-9 && gap > 0) tc = gap / rel;
+  else if (rel > 1e-9 && gap <= 0) tc = 0; // já em contato
+
+  // Para colisão completamente inelástica, os corpos seguem juntos (mesma velocidade)
+  const series: CollisionResults["series"] = [];
+  const N = 600;
+  const dt = duration / N;
+  for (let i = 0; i <= N; i++) {
+    const t = i * dt;
+    let x1: number, x2: number, vv1: number, vv2: number;
+    if (tc === null || t < tc) {
+      x1 = x1_0 + u1 * t;
+      x2 = x2_0 + u2 * t;
+      vv1 = u1; vv2 = u2;
+    } else {
+      const dtc = t - tc;
+      const xc1 = x1_0 + u1 * tc;
+      const xc2 = x2_0 + u2 * tc;
+      x1 = xc1 + v1f * dtc;
+      x2 = xc2 + v2f * dtc;
+      vv1 = v1f; vv2 = v2f;
+    }
+    const ke = 0.5 * m1 * vv1 * vv1 + 0.5 * m2 * vv2 * vv2;
+    const pp = m1 * vv1 + m2 * vv2;
+    series.push({ t, x1, x2, v1: vv1, v2: vv2, ke, p: pp });
+  }
+
+  return {
+    v1: v1f, v2: v2f,
+    p_before, p_after,
+    ke_before, ke_after,
+    ke_lost: ke_before - ke_after,
+    vcm,
+    impulse: m1 * (v1f - u1),
+    collisionTime: tc,
+    collided: tc !== null && tc <= duration,
+    series,
+  };
+}

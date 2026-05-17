@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, Atom, Zap, Magnet, Activity, Sparkles, Lock, Rocket, Waves, Thermometer, Eye } from "lucide-react";
+import { ArrowRight, Atom, Zap, Magnet, Activity, Sparkles, Lock, Rocket, Waves, Thermometer, Eye, Circle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -175,6 +175,15 @@ const experiments = [
     description: "1/f = 1/d₀ + 1/dᵢ e equação dos fabricantes: traçado de raios, ampliação e regimes real/virtual.",
     href: "/experimentos/lentes",
   },
+  {
+    id: "colisoes",
+    available: true,
+    icon: Circle,
+    area: "Mecânica",
+    title: "Colisões 1D — momento linear",
+    description: "Choque entre dois corpos com coeficiente de restituição: conservação de p, perda de energia e impulso.",
+    href: "/experimentos/colisoes",
+  },
 ];
 
 const Index = () => {
@@ -227,7 +236,7 @@ const Index = () => {
 
           <dl className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-6 animate-fade-in">
             {[
-            { k: "19", v: "Experimentos ativos" },
+            { k: "20", v: "Experimentos ativos" },
               { k: "Open", v: "Próximos por vir" },
               { k: "Tempo real", v: "Cálculos físicos" },
               { k: "IA", v: "Assistente contextual" },
