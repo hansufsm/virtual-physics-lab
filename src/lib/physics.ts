@@ -1763,3 +1763,102 @@ export function simulateCollision(p: CollisionParams): CollisionResults {
     series,
   };
 }
+
+// =====================
+// EXP-21: Ondas estacionárias em corda
+// =====================
+export type StringBoundary = "fixed-fixed" | "fixed-free";
+
+export interface StandingWaveParams {
+  L: number;            // comprimento da corda (m)
+  T: number;            // tração (N)
+  mu: number;           // densidade linear (kg/m)
+  mode: number;         // modo n (1, 2, 3, ...)
+  amplitude: number;    // amplitude (m)
+  boundary: StringBoundary;
+  damping: number;      // 0..1 (amortecimento por ciclo, visual)
+  xSamples?: number;    // pontos na corda
+}
+
+export interface StandingWaveResults {
+  v: number;            // velocidade da onda (m/s)
+  k: number;            // número de onda (rad/m)
+  omega: number;        // frequência angular (rad/s)
+  wavelength: number;   // λ (m)
+  frequency: number;    // f (Hz)
+  period: number;       // T (s)
+  energy: number;       // energia média por unidade de massa total (J)
+  nodes: number[];      // posições dos nós (m)
+  antinodes: number[];  // posições dos ventres (m)
+  shape: { x: number; y: number }[];     // snapshot atual y(x)
+  envelope: { x: number; yPos: number; yNeg: number }[]; // ±|A sin kx|
+  modeTable: { n: number; f: number; wavelength: number }[]; // primeiros modos
+}
+
+export function computeStandingWave(p: StandingWaveParams, time = 0): StandingWaveResults {
+  const { L, T, mu, mode, amplitude, boundary, damping } = p;
+  const N = Math.max(64, Math.min(800, p.xSamples ?? 200));
+  const v = Math.sqrt(T / mu);
+
+  let wavelength: number;
+  let k: number;
+  let frequency: number;
+  if (boundary === "fixed-fixed") {
+    wavelength = (2 * L) / mode;
+    k = (mode * Math.PI) / L;
+    frequency = (mode * v) / (2 * L);
+  } else {
+    // fixed-free: n = 1,3,5,... → usar (2n-1)
+    const m = 2 * mode - 1;
+    wavelength = (4 * L) / m;
+    k = (m * Math.PI) / (2 * L);
+    frequency = (m * v) / (4 * L);
+  }
+  const omega = 2 * Math.PI * frequency;
+  const period = 1 / frequency;
+
+  // amortecimento exponencial visual: A(t) = A0 e^(-α t), α tal que após 1 ciclo cai por damping
+  const alpha = damping > 0 ? -Math.log(1 - Math.min(0.95, damping)) * frequency : 0;
+  const Aeff = amplitude * Math.exp(-alpha * time);
+
+  const shape: { x: number; y: number }[] = [];
+  const envelope: { x: number; yPos: number; yNeg: number }[] = [];
+  for (let i = 0; i <= N; i++) {
+    const x = (i / N) * L;
+    const spatial = Math.sin(k * x);
+    const y = Aeff * spatial * Math.cos(omega * time);
+    shape.push({ x, y });
+    const env = amplitude * Math.abs(spatial);
+    envelope.push({ x, yPos: env, yNeg: -env });
+  }
+
+  // Nós: onde sin(kx)=0
+  const nodes: number[] = [];
+  const antinodes: number[] = [];
+  if (boundary === "fixed-fixed") {
+    for (let n = 0; n <= mode; n++) nodes.push((n * L) / mode);
+    for (let n = 0; n < mode; n++) antinodes.push(((n + 0.5) * L) / mode);
+  } else {
+    const m = 2 * mode - 1;
+    // nós em x = 2jL/m, j = 0..(m-1)/2 (até <= L)
+    for (let j = 0; (2 * j * L) / m <= L + 1e-9; j++) nodes.push((2 * j * L) / m);
+    // ventres em x = (2j+1)L/m
+    for (let j = 0; ((2 * j + 1) * L) / m <= L + 1e-9; j++) antinodes.push(((2 * j + 1) * L) / m);
+  }
+
+  // Energia média de uma onda estacionária num modo: <E> = (1/4) μ L ω² A²
+  const energy = 0.25 * mu * L * omega * omega * amplitude * amplitude;
+
+  // Tabela dos 6 primeiros modos
+  const modeTable: { n: number; f: number; wavelength: number }[] = [];
+  for (let n = 1; n <= 6; n++) {
+    if (boundary === "fixed-fixed") {
+      modeTable.push({ n, f: (n * v) / (2 * L), wavelength: (2 * L) / n });
+    } else {
+      const m = 2 * n - 1;
+      modeTable.push({ n, f: (m * v) / (4 * L), wavelength: (4 * L) / m });
+    }
+  }
+
+  return { v, k, omega, wavelength, frequency, period, energy, nodes, antinodes, shape, envelope, modeTable };
+}
