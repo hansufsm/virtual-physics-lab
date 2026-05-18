@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, Atom, Zap, Magnet, Activity, Sparkles, Lock, Rocket, Waves, Thermometer, Eye, Circle } from "lucide-react";
+import { ArrowRight, Atom, Zap, Magnet, Activity, Sparkles, Lock, Rocket, Waves, Thermometer, Eye, Circle, AudioWaveform } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -184,6 +184,15 @@ const experiments = [
     description: "Choque entre dois corpos com coeficiente de restituição: conservação de p, perda de energia e impulso.",
     href: "/experimentos/colisoes",
   },
+  {
+    id: "ondas-corda",
+    available: true,
+    icon: AudioWaveform,
+    area: "Ondas",
+    title: "Ondas estacionárias em corda",
+    description: "Modos normais com v = √(T/μ): visualize harmônicos, nós e ventres em cordas fixa-fixa e fixa-livre.",
+    href: "/experimentos/ondas-corda",
+  },
 ];
 
 const Index = () => {
@@ -236,7 +245,7 @@ const Index = () => {
 
           <dl className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-6 animate-fade-in">
             {[
-            { k: "20", v: "Experimentos ativos" },
+            { k: "21", v: "Experimentos ativos" },
               { k: "Open", v: "Próximos por vir" },
               { k: "Tempo real", v: "Cálculos físicos" },
               { k: "IA", v: "Assistente contextual" },
