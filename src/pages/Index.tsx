@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, Atom, Zap, Magnet, Activity, Sparkles, Lock, Rocket, Waves, Thermometer, Eye, Circle, AudioWaveform } from "lucide-react";
+import { ArrowRight, Atom, Zap, Magnet, Activity, Sparkles, Lock, Rocket, Waves, Thermometer, Eye, Circle, AudioWaveform, Flame } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -193,6 +193,15 @@ const experiments = [
     description: "Modos normais com v = √(T/μ): visualize harmônicos, nós e ventres em cordas fixa-fixa e fixa-livre.",
     href: "/experimentos/ondas-corda",
   },
+  {
+    id: "calorimetria",
+    available: true,
+    icon: Flame,
+    area: "Termodinâmica",
+    title: "Calorimetria e mudanças de fase",
+    description: "Q = mc ΔT e calor latente: misture água, sólido quente e gelo e ache o equilíbrio térmico.",
+    href: "/experimentos/calorimetria",
+  },
 ];
 
 const Index = () => {
@@ -245,7 +254,7 @@ const Index = () => {
 
           <dl className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-6 animate-fade-in">
             {[
-            { k: "21", v: "Experimentos ativos" },
+            { k: "22", v: "Experimentos ativos" },
               { k: "Open", v: "Próximos por vir" },
               { k: "Tempo real", v: "Cálculos físicos" },
               { k: "IA", v: "Assistente contextual" },

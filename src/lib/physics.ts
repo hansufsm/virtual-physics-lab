@@ -1862,3 +1862,130 @@ export function computeStandingWave(p: StandingWaveParams, time = 0): StandingWa
 
   return { v, k, omega, wavelength, frequency, period, energy, nodes, antinodes, shape, envelope, modeTable };
 }
+
+// ===== Calorimetria e mudanças de fase =====
+
+export interface CalorimetryParams {
+  // água no calorímetro
+  mWater: number;       // kg
+  TWater: number;       // °C
+  // sólido quente
+  mSolid: number;       // kg
+  TSolid: number;       // °C
+  cSolid: number;       // J/(kg·K)
+  solidName: string;
+  // gelo opcional
+  mIce: number;         // kg (0 desativa)
+  // calorímetro (capacidade térmica)
+  CCal: number;         // J/K
+  TCal: number;         // °C (assume = TWater)
+  // tempo simulado
+  tauSeconds: number;   // constante de tempo para aproximação exponencial ao equilíbrio
+}
+
+export interface CalorimetryResults {
+  Tf: number;                 // °C equilíbrio
+  meltedFraction: number;     // 0..1 do gelo que derreteu
+  remainingIce: number;       // kg de gelo restante
+  qWater: number;             // J recebido pela água+calorímetro do estado inicial até Tf
+  qSolid: number;             // J cedido pelo sólido (negativo se esfria)
+  qIce: number;               // J recebido pelo gelo (fusão + aquecimento)
+  energyBalance: number;      // J — resíduo (~0 indica conservação)
+  scenario: "no-ice" | "all-melt" | "partial-melt" | "all-freeze";
+  series: { t: number; TWater: number; TSolid: number; TIce: number }[];
+  // constantes usadas
+  cWater: number;             // J/(kg·K)
+  Lf: number;                 // J/kg (fusão da água)
+}
+
+export const C_WATER = 4186;     // J/(kg·K)
+export const C_ICE = 2090;       // J/(kg·K)
+export const LF_WATER = 334000;  // J/kg
+
+/**
+ * Resolve o equilíbrio térmico de: água (líquida, Tw) + calorímetro (CCal, Tw)
+ * + sólido quente (mSolid, cSolid, TSolid) + gelo a 0°C (mIce).
+ * Convenção: Q recebido > 0. Soma de calores = 0.
+ */
+export function computeCalorimetry(p: CalorimetryParams): CalorimetryResults {
+  const cw = C_WATER;
+  const Lf = LF_WATER;
+  const Cw = p.mWater * cw + p.CCal;     // capacidade térmica da água+calorímetro
+  const Cs = p.mSolid * p.cSolid;
+  const mi = Math.max(0, p.mIce);
+
+  // Caso sem gelo: Cw·(Tf - Tw) + Cs·(Tf - Ts) = 0
+  const TfNoIce = (Cw * p.TWater + Cs * p.TSolid) / (Cw + Cs);
+
+  let Tf = TfNoIce;
+  let scenario: CalorimetryResults["scenario"] = "no-ice";
+  let meltedFraction = 0;
+  let remainingIce = mi;
+
+  if (mi > 1e-9) {
+    // Energia disponível (assumindo Tf=0°C) que o sistema água+sólido cede ao baixar para 0:
+    const QtoZero = Cw * (p.TWater - 0) + Cs * (p.TSolid - 0); // J
+    const QmeltAll = mi * Lf;
+
+    if (QtoZero <= 0) {
+      // sistema já está em ou abaixo de 0; o gelo não derrete (e parte da água congela em situações reais).
+      // Para simplificação tratamos como "all-freeze" parcial: Tf = 0 e nada derrete.
+      Tf = 0;
+      scenario = "all-freeze";
+      meltedFraction = 0;
+      remainingIce = mi;
+    } else if (QtoZero < QmeltAll) {
+      // não há energia suficiente para derreter todo o gelo => Tf = 0 e parte do gelo derrete
+      Tf = 0;
+      const melted = QtoZero / Lf;
+      meltedFraction = melted / mi;
+      remainingIce = mi - melted;
+      scenario = "partial-melt";
+    } else {
+      // todo gelo derrete; depois mistura como água a 0°C com massa mi
+      // Balanço: Cw·(Tf - Tw) + Cs·(Tf - Ts) + mi·Lf + mi·cw·(Tf - 0) = 0
+      Tf = (Cw * p.TWater + Cs * p.TSolid - mi * Lf) / (Cw + Cs + mi * cw);
+      meltedFraction = 1;
+      remainingIce = 0;
+      scenario = "all-melt";
+    }
+  }
+
+  // Calores (estado inicial -> estado final)
+  const qWater = Cw * (Tf - p.TWater);
+  const qSolid = Cs * (Tf - p.TSolid);
+  let qIce = 0;
+  if (mi > 0) {
+    if (scenario === "partial-melt") {
+      qIce = (mi - remainingIce) * Lf; // só fusão
+    } else if (scenario === "all-melt") {
+      qIce = mi * Lf + mi * cw * (Tf - 0);
+    } else if (scenario === "all-freeze") {
+      qIce = 0;
+    }
+  }
+  const energyBalance = qWater + qSolid + qIce;
+
+  // Série temporal: aproximação exponencial de cada corpo ao equilíbrio
+  const tau = Math.max(0.1, p.tauSeconds);
+  const tMax = tau * 5;
+  const N = 120;
+  const series: { t: number; TWater: number; TSolid: number; TIce: number }[] = [];
+  const Tice0 = mi > 0 ? 0 : Tf;
+  for (let i = 0; i <= N; i++) {
+    const t = (i / N) * tMax;
+    const k = 1 - Math.exp(-t / tau);
+    series.push({
+      t,
+      TWater: p.TWater + (Tf - p.TWater) * k,
+      TSolid: p.TSolid + (Tf - p.TSolid) * k,
+      TIce: Tice0 + (Tf - Tice0) * k,
+    });
+  }
+
+  return {
+    Tf, meltedFraction, remainingIce,
+    qWater, qSolid, qIce, energyBalance,
+    scenario, series, cWater: cw, Lf,
+  };
+}
