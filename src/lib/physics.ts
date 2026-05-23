@@ -115,21 +115,6 @@ function currentAt(V: number, Isat: number, Vs: number, emits: boolean): number 
   return Isat * (1 - r);
 }
 
-// Comprimento de onda (nm) -> cor RGB aproximada para visualização
-export function wavelengthToRgb(nm: number): string {
-  let r = 0, g = 0, b = 0;
-  if (nm >= 380 && nm < 440) { r = -(nm - 440) / 60; g = 0; b = 1; }
-  else if (nm < 490) { r = 0; g = (nm - 440) / 50; b = 1; }
-  else if (nm < 510) { r = 0; g = 1; b = -(nm - 510) / 20; }
-  else if (nm < 580) { r = (nm - 510) / 70; g = 1; b = 0; }
-  else if (nm < 645) { r = 1; g = -(nm - 645) / 65; b = 0; }
-  else if (nm <= 780) { r = 1; g = 0; b = 0; }
-  else if (nm < 380) { r = 0.4; g = 0; b = 0.7; } // UV → violeta escuro
-  else { r = 0.5; g = 0.05; b = 0.05; }            // IR → vermelho escuro
-  const f = (x: number) => Math.round(Math.max(0, Math.min(1, x)) * 255);
-  return `rgb(${f(r)}, ${f(g)}, ${f(b)})`;
-}
-
 
 export interface CapacitorParams {
   voltage: number;       // V
