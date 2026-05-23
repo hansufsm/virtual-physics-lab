@@ -26,7 +26,8 @@ export const PhotoelectricVisualization = ({ params, results }: Props) => {
 
     const material = PHOTO_MATERIALS.find((m) => m.name === params.materialName);
     const matColor = material?.color ?? "hsl(0,0%,75%)";
-    const photonColor = wavelengthToRgb(params.wavelengthNm);
+    const [pr, pg, pb] = wavelengthToRgb(params.wavelengthNm);
+    const photonColor = `rgb(${pr},${pg},${pb})`;
 
     // Layout
     const cathodeX = 110;
