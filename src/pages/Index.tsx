@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, Atom, Zap, Magnet, Activity, Sparkles, Lock, Rocket, Waves, Thermometer, Eye, Circle, AudioWaveform, Flame } from "lucide-react";
+import { ArrowRight, Atom, Zap, Magnet, Activity, Sparkles, Lock, Rocket, Waves, Thermometer, Eye, Circle, AudioWaveform, Flame, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -202,6 +202,15 @@ const experiments = [
     description: "Q = mc ΔT e calor latente: misture água, sólido quente e gelo e ache o equilíbrio térmico.",
     href: "/experimentos/calorimetria",
   },
+  {
+    id: "fotoeletrico",
+    available: true,
+    icon: Sun,
+    area: "Física quântica",
+    title: "Efeito fotoelétrico",
+    description: "hf = φ + K_máx: ache a tensão de frenagem V_s, varie λ e material, e estime h pelo slope V_s × f.",
+    href: "/experimentos/fotoeletrico",
+  },
 ];
 
 const Index = () => {
@@ -254,7 +263,7 @@ const Index = () => {
 
           <dl className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-6 animate-fade-in">
             {[
-            { k: "22", v: "Experimentos ativos" },
+            { k: "23", v: "Experimentos ativos" },
               { k: "Open", v: "Próximos por vir" },
               { k: "Tempo real", v: "Cálculos físicos" },
               { k: "IA", v: "Assistente contextual" },

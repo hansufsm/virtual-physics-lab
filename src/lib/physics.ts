@@ -1,6 +1,121 @@
 // Constantes e utilidades para o experimento de capacitor de placas paralelas
 export const EPSILON_0 = 8.854e-12; // F/m
 
+// ============================================================================
+// EXP-23 · Efeito fotoelétrico
+// ============================================================================
+export const PLANCK_H = 6.62607015e-34;   // J·s
+export const ELECTRON_E = 1.602176634e-19; // C
+export const SPEED_C = 2.99792458e8;       // m/s
+
+export interface PhotoMaterial { name: string; phiEv: number; color: string }
+export const PHOTO_MATERIALS: PhotoMaterial[] = [
+  { name: "Césio",   phiEv: 2.10, color: "hsl(45, 90%, 60%)" },
+  { name: "Potássio",phiEv: 2.30, color: "hsl(35, 80%, 60%)" },
+  { name: "Sódio",   phiEv: 2.36, color: "hsl(50, 85%, 65%)" },
+  { name: "Cálcio",  phiEv: 2.87, color: "hsl(0, 0%, 80%)"  },
+  { name: "Zinco",   phiEv: 4.30, color: "hsl(210, 15%, 70%)" },
+  { name: "Cobre",   phiEv: 4.70, color: "hsl(20, 70%, 55%)" },
+  { name: "Prata",   phiEv: 4.73, color: "hsl(0, 0%, 88%)"  },
+  { name: "Ouro",    phiEv: 5.10, color: "hsl(48, 85%, 60%)" },
+];
+
+export interface PhotoelectricParams {
+  wavelengthNm: number;   // λ em nm
+  intensity: number;      // W/m² (intensidade do feixe)
+  voltage: number;        // V (potencial do ânodo relativo ao cátodo; >0 acelera elétrons, <0 freia)
+  materialName: string;
+  phiEv: number;          // função trabalho em eV
+  quantumEfficiency: number; // η ∈ [0,1] — fração de fótons que ejetam elétrons
+  areaCm2: number;        // área iluminada do cátodo
+}
+
+export interface PhotoelectricResults {
+  photonEnergyJ: number;
+  photonEnergyEv: number;
+  frequencyHz: number;
+  thresholdFreqHz: number;
+  thresholdWavelengthNm: number;
+  kMaxJ: number;          // energia cinética máxima
+  kMaxEv: number;
+  vMaxMs: number;         // velocidade máxima
+  stoppingVoltage: number; // V_s > 0 (tensão de frenagem)
+  emits: boolean;
+  photonFlux: number;      // fótons/s (sobre área)
+  saturationCurrent: number; // A
+  current: number;           // A na tensão atual
+  // Curvas
+  ivCurve: { V: number; I: number }[];
+  vsVsFreq: { f: number; Vs: number }[]; // varredura para o material atual
+}
+
+export function computePhotoelectric(p: PhotoelectricParams): PhotoelectricResults {
+  const lambda = Math.max(1e-12, p.wavelengthNm * 1e-9);
+  const f = SPEED_C / lambda;
+  const Eph = PLANCK_H * f;
+  const EphEv = Eph / ELECTRON_E;
+  const phiJ = p.phiEv * ELECTRON_E;
+  const f0 = phiJ / PLANCK_H;
+  const lambda0Nm = (SPEED_C / f0) * 1e9;
+
+  const emits = f > f0;
+  const Kmax = emits ? Eph - phiJ : 0;
+  const KmaxEv = Kmax / ELECTRON_E;
+  const vMax = emits ? Math.sqrt(2 * Kmax / 9.10938356e-31) : 0;
+  const Vs = emits ? Kmax / ELECTRON_E : 0;
+
+  // Fluxo de fótons: P = I · A; n_fot = P / Eph
+  const A = p.areaCm2 * 1e-4;
+  const power = p.intensity * A;
+  const photonFlux = emits ? power / Eph : 0;
+  const Isat = ELECTRON_E * photonFlux * p.quantumEfficiency;
+
+  // Modelo de corrente I(V):
+  //  - se V >= 0 (acelera ou neutro): I = Isat (todos elétrons coletados)
+  //  - se -Vs < V < 0: fração com K > e|V| chega; modelo simples linear:
+  //      I(V) = Isat * (1 - |V|/Vs)  (aproximação didática)
+  //  - se V <= -Vs: I = 0
+  const current = currentAt(p.voltage, Isat, Vs, emits);
+
+  const ivCurve: { V: number; I: number }[] = [];
+  const vMin = -(Vs + 1.5);
+  const vMaxRange = Math.max(2, Vs + 2);
+  const N = 80;
+  for (let i = 0; i <= N; i++) {
+    const V = vMin + (i / N) * (vMaxRange - vMin);
+    ivCurve.push({ V: +V.toFixed(3), I: currentAt(V, Isat, Vs, emits) });
+  }
+
+  // Vs vs f: varredura entre f0 e ~3 f0 (mantendo material e intensidade)
+  const vsVsFreq: { f: number; Vs: number }[] = [];
+  const fMin = Math.max(f0 * 0.5, 1e14);
+  const fMax = Math.max(f * 1.5, f0 * 3);
+  const M = 40;
+  for (let i = 0; i <= M; i++) {
+    const ff = fMin + (i / M) * (fMax - fMin);
+    const K = PLANCK_H * ff - phiJ;
+    vsVsFreq.push({ f: +(ff / 1e14).toFixed(3), Vs: K > 0 ? K / ELECTRON_E : 0 });
+  }
+
+  return {
+    photonEnergyJ: Eph, photonEnergyEv: EphEv, frequencyHz: f,
+    thresholdFreqHz: f0, thresholdWavelengthNm: lambda0Nm,
+    kMaxJ: Kmax, kMaxEv: KmaxEv, vMaxMs: vMax, stoppingVoltage: Vs,
+    emits, photonFlux, saturationCurrent: Isat, current,
+    ivCurve, vsVsFreq,
+  };
+}
+
+function currentAt(V: number, Isat: number, Vs: number, emits: boolean): number {
+  if (!emits || Isat <= 0) return 0;
+  if (V >= 0) return Isat;
+  if (Vs <= 0) return 0;
+  const r = -V / Vs; // 0..∞
+  if (r >= 1) return 0;
+  return Isat * (1 - r);
+}
+
+
 export interface CapacitorParams {
   voltage: number;       // V
   distanceMm: number;    // mm
