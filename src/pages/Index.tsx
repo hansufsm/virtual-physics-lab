@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, Atom, Zap, Magnet, Activity, Sparkles, Lock, Rocket, Waves, Thermometer, Eye, Circle, AudioWaveform, Flame, Sun } from "lucide-react";
+import { ArrowRight, Atom, Zap, Magnet, Activity, Sparkles, Lock, Rocket, Waves, Thermometer, Eye, Circle, AudioWaveform, Flame, Sun, Radiation } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -211,6 +211,15 @@ const experiments = [
     description: "hf = φ + K_máx: ache a tensão de frenagem V_s, varie λ e material, e estime h pelo slope V_s × f.",
     href: "/experimentos/fotoeletrico",
   },
+  {
+    id: "decaimento",
+    available: true,
+    icon: Radiation,
+    area: "Física nuclear",
+    title: "Decaimento radioativo",
+    description: "N(t) = N₀ e^(−λt), meia-vida T½ = ln2/λ, atividade A = λN e simulação estocástica núcleo a núcleo.",
+    href: "/experimentos/decaimento",
+  },
 ];
 
 const Index = () => {
@@ -263,7 +272,7 @@ const Index = () => {
 
           <dl className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-6 animate-fade-in">
             {[
-            { k: "23", v: "Experimentos ativos" },
+            { k: "24", v: "Experimentos ativos" },
               { k: "Open", v: "Próximos por vir" },
               { k: "Tempo real", v: "Cálculos físicos" },
               { k: "IA", v: "Assistente contextual" },

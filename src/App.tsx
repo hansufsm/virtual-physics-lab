@@ -28,6 +28,7 @@ import CollisionExperiment from "./pages/CollisionExperiment.tsx";
 import StandingWaveExperiment from "./pages/StandingWaveExperiment.tsx";
 import CalorimetryExperiment from "./pages/CalorimetryExperiment.tsx";
 import PhotoelectricExperiment from "./pages/PhotoelectricExperiment.tsx";
+import RadioactiveDecayExperiment from "./pages/RadioactiveDecayExperiment.tsx";
 
 const queryClient = new QueryClient();
 
@@ -62,6 +63,7 @@ const App = () => (
           <Route path="/experimentos/ondas-corda" element={<StandingWaveExperiment />} />
           <Route path="/experimentos/calorimetria" element={<CalorimetryExperiment />} />
           <Route path="/experimentos/fotoeletrico" element={<PhotoelectricExperiment />} />
+          <Route path="/experimentos/decaimento" element={<RadioactiveDecayExperiment />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

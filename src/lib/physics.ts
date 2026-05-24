@@ -2,6 +2,94 @@
 export const EPSILON_0 = 8.854e-12; // F/m
 
 // ============================================================================
+// EXP-24 · Decaimento radioativo
+// ============================================================================
+export const AVOGADRO = 6.02214076e23;
+
+export interface RadioIsotope {
+  name: string;       // ex.: "I-131"
+  label: string;      // ex.: "Iodo-131"
+  halfLifeS: number;  // meia-vida em segundos
+  decay: "β−" | "β+" | "α" | "γ" | "CE";
+  daughter: string;
+}
+
+// Meia-vidas em segundos
+const day = 86400, year = 365.25 * day;
+export const RADIO_ISOTOPES: RadioIsotope[] = [
+  { name: "Tc-99m", label: "Tecnécio-99m",  halfLifeS: 6.0 * 3600,       decay: "γ",  daughter: "Tc-99" },
+  { name: "I-131",  label: "Iodo-131",      halfLifeS: 8.02 * day,        decay: "β−", daughter: "Xe-131" },
+  { name: "P-32",   label: "Fósforo-32",    halfLifeS: 14.28 * day,       decay: "β−", daughter: "S-32" },
+  { name: "Co-60",  label: "Cobalto-60",    halfLifeS: 5.27 * year,       decay: "β−", daughter: "Ni-60" },
+  { name: "Sr-90",  label: "Estrôncio-90",  halfLifeS: 28.79 * year,      decay: "β−", daughter: "Y-90"  },
+  { name: "Cs-137", label: "Césio-137",     halfLifeS: 30.17 * year,      decay: "β−", daughter: "Ba-137m" },
+  { name: "Ra-226", label: "Rádio-226",     halfLifeS: 1600 * year,       decay: "α",  daughter: "Rn-222" },
+  { name: "C-14",   label: "Carbono-14",    halfLifeS: 5730 * year,       decay: "β−", daughter: "N-14"  },
+  { name: "U-238",  label: "Urânio-238",    halfLifeS: 4.468e9 * year,    decay: "α",  daughter: "Th-234" },
+];
+
+export interface DecayParams {
+  isotopeName: string;
+  halfLifeS: number;       // editável (sobrescreve o do isótopo)
+  N0: number;              // número inicial de núcleos
+  timeS: number;           // instante de observação t
+  tMaxMultiplier: number;  // janela em múltiplos de T½ para as curvas
+}
+
+export interface DecayResults {
+  lambda: number;          // constante de decaimento (1/s)
+  meanLifeS: number;       // τ = 1/λ
+  N: number;               // núcleos restantes em t
+  decayed: number;         // N0 − N
+  activity: number;        // A(t) = λN (Bq)
+  activity0: number;       // A(0) = λN0
+  fractionRemaining: number; // N/N0
+  halfLivesElapsed: number;  // t/T½
+  curveN: { t: number; N: number; A: number }[]; // curvas N(t) e A(t)
+}
+
+export function computeRadioactiveDecay(p: DecayParams): DecayResults {
+  const T = Math.max(1e-9, p.halfLifeS);
+  const lambda = Math.LN2 / T;
+  const meanLife = 1 / lambda;
+  const N0 = Math.max(0, p.N0);
+  const t = Math.max(0, p.timeS);
+  const N = N0 * Math.exp(-lambda * t);
+  const A = lambda * N;
+  const A0 = lambda * N0;
+
+  const tMax = T * Math.max(1, p.tMaxMultiplier);
+  const M = 120;
+  const curveN: { t: number; N: number; A: number }[] = [];
+  for (let i = 0; i <= M; i++) {
+    const tt = (i / M) * tMax;
+    const Nt = N0 * Math.exp(-lambda * tt);
+    curveN.push({ t: tt, N: Nt, A: lambda * Nt });
+  }
+
+  return {
+    lambda, meanLifeS: meanLife,
+    N, decayed: N0 - N, activity: A, activity0: A0,
+    fractionRemaining: N0 > 0 ? N / N0 : 0,
+    halfLivesElapsed: t / T,
+    curveN,
+  };
+}
+
+/** Converte um intervalo em segundos numa string legível (ns..anos). */
+export function formatDuration(s: number): string {
+  if (!isFinite(s) || s <= 0) return "0 s";
+  const units: [number, string][] = [
+    [365.25 * 86400, "anos"], [86400, "d"], [3600, "h"], [60, "min"],
+    [1, "s"], [1e-3, "ms"], [1e-6, "µs"], [1e-9, "ns"],
+  ];
+  for (const [f, u] of units) {
+    if (s >= f) return `${(s / f).toFixed(s / f >= 100 ? 0 : 2)} ${u}`;
+  }
+  return `${s.toExponential(2)} s`;
+}
+
+// ============================================================================
 // EXP-23 · Efeito fotoelétrico
 // ============================================================================
 export const PLANCK_H = 6.62607015e-34;   // J·s
