@@ -2192,3 +2192,154 @@ export function computeCalorimetry(p: CalorimetryParams): CalorimetryResults {
     scenario, series, cWater: cw, Lf,
   };
 }
+
+// =============================================================
+// Transitório LR / RLC série — resposta a degrau e descarga
+// =============================================================
+
+export type TransientMode = "LR" | "RLC";
+export type TransientPhase = "step" | "discharge";
+export type TransientRegime = "underdamped" | "critical" | "overdamped" | "lr";
+
+export interface TransientParams {
+  mode: TransientMode;
+  phase: TransientPhase;
+  V0: number;       // V (tensão da fonte aplicada no degrau)
+  R: number;        // Ω
+  L: number;        // H
+  C: number;        // F (usado em RLC)
+  I_init: number;   // A (corrente inicial em t=0)
+  Vc_init: number;  // V (tensão inicial no capacitor — RLC)
+  tMax: number;     // s — janela de simulação
+}
+
+export interface TransientSample {
+  t: number;
+  i: number;        // corrente (A)
+  vR: number;
+  vL: number;
+  vC: number;       // 0 em LR
+  energyL: number;  // ½ L i²
+  energyC: number;  // ½ C v_C²
+}
+
+export interface TransientResults {
+  regime: TransientRegime;
+  tau: number;              // L/R (LR) ou 1/α (RLC)
+  alpha: number;            // R/(2L)
+  omega0: number;           // 1/√(LC) (RLC) — 0 em LR
+  omegaD: number;           // ωd se subamortecido
+  zeta: number;             // R/2 · √(C/L)
+  Q: number;                // ω0 L / R
+  fNatural: number;         // ω0/(2π)
+  fDamped: number;          // ωd/(2π)
+  s1: number;               // raízes características (overdamped)
+  s2: number;
+  steadyI: number;          // corrente em t→∞
+  steadyVc: number;         // tensão no cap em t→∞
+  series: TransientSample[];
+  i: (t: number) => number;
+  vC: (t: number) => number;
+}
+
+export function computeTransient(p: TransientParams): TransientResults {
+  const { mode, phase, R, L, C } = p;
+  const Vsrc = phase === "step" ? p.V0 : 0; // descarga = fonte removida (curto)
+
+  // ---------------- LR ----------------
+  if (mode === "LR") {
+    const tau = L / R;
+    const Iinf = Vsrc / R;
+    const I0 = p.I_init;
+    const A = I0 - Iinf;
+    const i = (t: number) => Iinf + A * Math.exp(-t / tau);
+    const vC = (_t: number) => 0;
+
+    const N = 400;
+    const series: TransientSample[] = [];
+    for (let k = 0; k <= N; k++) {
+      const t = (k / N) * p.tMax;
+      const it = i(t);
+      // dI/dt = -A/τ e^(-t/τ) → vL = L dI/dt
+      const di = -A / tau * Math.exp(-t / tau);
+      const vL = L * di;
+      const vR = R * it;
+      series.push({ t, i: it, vR, vL, vC: 0, energyL: 0.5 * L * it * it, energyC: 0 });
+    }
+    return {
+      regime: "lr", tau, alpha: 1 / tau, omega0: 0, omegaD: 0, zeta: Infinity, Q: 0,
+      fNatural: 0, fDamped: 0, s1: -1 / tau, s2: -1 / tau,
+      steadyI: Iinf, steadyVc: 0, series, i, vC,
+    };
+  }
+
+  // ---------------- RLC série ----------------
+  // L q'' + R q' + q/C = Vsrc, i = q'
+  const alpha = R / (2 * L);
+  const omega0 = 1 / Math.sqrt(L * C);
+  const zeta = alpha / omega0;
+  const Q = (omega0 * L) / R;
+  const q_inf = C * Vsrc;          // carga de equilíbrio
+  const q0 = C * p.Vc_init;
+  const i0 = p.I_init;
+  const u0 = q0 - q_inf;           // desvio inicial em q
+
+  let i: (t: number) => number;
+  let vC: (t: number) => number;
+  let regime: TransientRegime;
+  let omegaD = 0, s1 = 0, s2 = 0;
+
+  if (Math.abs(zeta - 1) < 1e-6) {
+    regime = "critical";
+    const A = u0;
+    const B = i0 + alpha * A;
+    const q = (t: number) => q_inf + (A + B * t) * Math.exp(-alpha * t);
+    i = (t: number) => (B - alpha * (A + B * t)) * Math.exp(-alpha * t);
+    vC = (t: number) => q(t) / C;
+    s1 = s2 = -alpha;
+  } else if (zeta < 1) {
+    regime = "underdamped";
+    omegaD = Math.sqrt(omega0 * omega0 - alpha * alpha);
+    const A = u0;
+    const B = (i0 + alpha * A) / omegaD;
+    const q = (t: number) =>
+      q_inf + Math.exp(-alpha * t) * (A * Math.cos(omegaD * t) + B * Math.sin(omegaD * t));
+    i = (t: number) => {
+      const e = Math.exp(-alpha * t);
+      const cos = Math.cos(omegaD * t), sin = Math.sin(omegaD * t);
+      return e * ((-alpha) * (A * cos + B * sin) + (-A * omegaD * sin + B * omegaD * cos));
+    };
+    vC = (t: number) => q(t) / C;
+  } else {
+    regime = "overdamped";
+    const disc = Math.sqrt(alpha * alpha - omega0 * omega0);
+    s1 = -alpha + disc;
+    s2 = -alpha - disc;
+    const A1 = (i0 - s2 * u0) / (s1 - s2);
+    const A2 = u0 - A1;
+    const q = (t: number) => q_inf + A1 * Math.exp(s1 * t) + A2 * Math.exp(s2 * t);
+    i = (t: number) => A1 * s1 * Math.exp(s1 * t) + A2 * s2 * Math.exp(s2 * t);
+    vC = (t: number) => q(t) / C;
+  }
+
+  const N = 600;
+  const series: TransientSample[] = [];
+  for (let k = 0; k <= N; k++) {
+    const t = (k / N) * p.tMax;
+    const it = i(t);
+    const vc = vC(t);
+    const vr = R * it;
+    const vl = Vsrc - vr - vc; // por KVL
+    series.push({
+      t, i: it, vR: vr, vL: vl, vC: vc,
+      energyL: 0.5 * L * it * it,
+      energyC: 0.5 * C * vc * vc,
+    });
+  }
+
+  return {
+    regime, tau: 1 / alpha, alpha, omega0, omegaD, zeta, Q,
+    fNatural: omega0 / (2 * Math.PI), fDamped: omegaD / (2 * Math.PI),
+    s1, s2, steadyI: 0, steadyVc: Vsrc, series, i, vC,
+  };
+}

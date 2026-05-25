@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, Atom, Zap, Magnet, Activity, Sparkles, Lock, Rocket, Waves, Thermometer, Eye, Circle, AudioWaveform, Flame, Sun, Radiation } from "lucide-react";
+import { ArrowRight, Atom, Zap, Magnet, Activity, Sparkles, Lock, Rocket, Waves, Thermometer, Eye, Circle, AudioWaveform, Flame, Sun, Radiation, CircuitBoard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -220,6 +220,15 @@ const experiments = [
     description: "N(t) = N₀ e^(−λt), meia-vida T½ = ln2/λ, atividade A = λN e simulação estocástica núcleo a núcleo.",
     href: "/experimentos/decaimento",
   },
+  {
+    id: "transitorio-lr-rlc",
+    available: true,
+    icon: CircuitBoard,
+    area: "Circuitos transitórios",
+    title: "Transitório LR e RLC série",
+    description: "τ = L/R em LR e regimes sub/crítico/superamortecido em RLC: degrau, descarga e fator Q.",
+    href: "/experimentos/transitorio-lr-rlc",
+  },
 ];
 
 const Index = () => {
@@ -272,7 +281,7 @@ const Index = () => {
 
           <dl className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-6 animate-fade-in">
             {[
-            { k: "24", v: "Experimentos ativos" },
+            { k: "25", v: "Experimentos ativos" },
               { k: "Open", v: "Próximos por vir" },
               { k: "Tempo real", v: "Cálculos físicos" },
               { k: "IA", v: "Assistente contextual" },
