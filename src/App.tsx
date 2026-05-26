@@ -30,6 +30,7 @@ import CalorimetryExperiment from "./pages/CalorimetryExperiment.tsx";
 import PhotoelectricExperiment from "./pages/PhotoelectricExperiment.tsx";
 import RadioactiveDecayExperiment from "./pages/RadioactiveDecayExperiment.tsx";
 import TransientLRExperiment from "./pages/TransientLRExperiment.tsx";
+import MichelsonExperiment from "./pages/MichelsonExperiment.tsx";
 
 const queryClient = new QueryClient();
 
@@ -66,6 +67,7 @@ const App = () => (
           <Route path="/experimentos/fotoeletrico" element={<PhotoelectricExperiment />} />
           <Route path="/experimentos/decaimento" element={<RadioactiveDecayExperiment />} />
           <Route path="/experimentos/transitorio-lr-rlc" element={<TransientLRExperiment />} />
+          <Route path="/experimentos/michelson" element={<MichelsonExperiment />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

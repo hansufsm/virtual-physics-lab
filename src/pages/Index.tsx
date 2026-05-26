@@ -229,6 +229,15 @@ const experiments = [
     description: "τ = L/R em LR e regimes sub/crítico/superamortecido em RLC: degrau, descarga e fator Q.",
     href: "/experimentos/transitorio-lr-rlc",
   },
+  {
+    id: "michelson",
+    available: true,
+    icon: Eye,
+    area: "Óptica ondulatória",
+    title: "Interferômetro de Michelson",
+    description: "Divisão de amplitude com BS 50/50: anéis concêntricos, franjas retilíneas com inclinação e metrologia Δx = m·λ/2.",
+    href: "/experimentos/michelson",
+  },
 ];
 
 const Index = () => {
@@ -281,7 +290,7 @@ const Index = () => {
 
           <dl className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-6 animate-fade-in">
             {[
-            { k: "25", v: "Experimentos ativos" },
+            { k: "26", v: "Experimentos ativos" },
               { k: "Open", v: "Próximos por vir" },
               { k: "Tempo real", v: "Cálculos físicos" },
               { k: "IA", v: "Assistente contextual" },

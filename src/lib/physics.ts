@@ -2343,3 +2343,123 @@ export function computeTransient(p: TransientParams): TransientResults {
     s1, s2, steadyI: 0, steadyVc: Vsrc, series, i, vC,
   };
 }
+
+// ============================================================================
+// EXP-26 · Interferômetro de Michelson
+// ============================================================================
+// Fonte monocromática extensa → franjas de igual inclinação (anéis concêntricos).
+// Com pequena inclinação de um dos espelhos → franjas retilíneas (igual espessura).
+
+export type MichelsonMode = "circular" | "linear";
+
+export interface MichelsonParams {
+  mode: MichelsonMode;
+  wavelengthNm: number;   // λ em nm
+  L1mm: number;           // braço fixo (referência), em mm
+  L2mm: number;           // braço móvel M2, em mm
+  tiltMrad: number;       // inclinação do espelho (mrad) — só usado em "linear"
+  visibility: number;     // 0..1 (contraste; depende de coerência e do divisor)
+  screenSizeMm: number;   // tamanho do plano de observação
+  apertureMm: number;     // diâmetro útil do feixe (limita raio dos anéis)
+}
+
+export interface MichelsonResults {
+  lambdaM: number;
+  pathDiffM: number;        // Δ = 2·(L2 − L1) (caminho geométrico)
+  orderCenter: number;      // m₀ = |Δ|/λ
+  centralIntensity: number; // 0..1 (cos² no centro)
+  fringeSpacingMm: number;  // em linear: Λ = λ/(2·tilt). Em circular: separação radial típica do anel central.
+  numVisibleRings: number;  // estimativa de anéis dentro da abertura
+  // mapa 2D de intensidade [0..1] (matriz quadrada gridN×gridN, indexada por linha-major)
+  intensityMap: Float32Array;
+  gridN: number;
+  // varredura: deslocamento de M2 → intensidade central (frequência de batimento = 2/λ por unidade de m)
+  scanCurve: { dx: number; I: number }[];
+}
+
+export function computeMichelson(p: MichelsonParams): MichelsonResults {
+  const lambda = Math.max(1e-12, p.wavelengthNm * 1e-9);
+  const L1 = p.L1mm * 1e-3, L2 = p.L2mm * 1e-3;
+  const delta = 2 * (L2 - L1);                  // diferença de caminho óptico
+  const orderCenter = Math.abs(delta) / lambda;
+  const V = Math.max(0, Math.min(1, p.visibility));
+  // intensidade normalizada (centro): I/Imax = ½(1 + V·cos(2π Δ/λ))
+  const centralIntensity = 0.5 * (1 + V * Math.cos(2 * Math.PI * delta / lambda));
+
+  const N = 220;
+  const map = new Float32Array(N * N);
+  const halfMm = p.screenSizeMm / 2;
+  const aperture = p.apertureMm * 1e-3;
+  const halfAp = aperture / 2;
+  const tilt = p.tiltMrad * 1e-3;
+
+  // Em circular: usar fonte extensa → para um ponto a uma distância r do eixo no plano de observação,
+  // a inclinação θ vista é proporcional a r/f (consideramos f normalizado: θ ≈ r/L_eff, L_eff = max(|Δ|, 0.1 m)).
+  // Caminho efetivo: Δ_eff = Δ·cos θ ≈ Δ·(1 − θ²/2). Variação rápida de I com r² → anéis concêntricos.
+  // Em linear: dois feixes inclinados de 2·tilt → Δ_local = Δ + 2·tilt·x → franjas paralelas com Λ = λ/(2·tilt).
+  const Leff = Math.max(Math.abs(delta), 0.1);
+
+  for (let iy = 0; iy < N; iy++) {
+    const y = ((iy / (N - 1)) - 0.5) * 2 * halfMm * 1e-3; // metros
+    for (let ix = 0; ix < N; ix++) {
+      const x = ((ix / (N - 1)) - 0.5) * 2 * halfMm * 1e-3;
+      const r2 = x * x + y * y;
+      // Máscara de abertura circular
+      if (r2 > halfAp * halfAp) {
+        map[iy * N + ix] = 0;
+        continue;
+      }
+      let pathLocal: number;
+      if (p.mode === "linear") {
+        pathLocal = delta + 2 * tilt * x;
+      } else {
+        const theta2 = r2 / (Leff * Leff);
+        pathLocal = delta * (1 - 0.5 * theta2);
+      }
+      const I = 0.5 * (1 + V * Math.cos(2 * Math.PI * pathLocal / lambda));
+      map[iy * N + ix] = I;
+    }
+  }
+
+  // Espaçamento e contagem de anéis
+  let fringeSpacingMm = 0;
+  let numVisibleRings = 0;
+  if (p.mode === "linear") {
+    fringeSpacingMm = tilt > 0 ? (lambda / (2 * tilt)) * 1e3 : Infinity;
+  } else {
+    // raio do n-ésimo mínimo a partir do centro: 2π·|Δ|·(1−r²/2L²)/λ = (m_center − n)·2π
+    // ⇒ r_n = L·√(2 n λ / |Δ|). Conte n até r ≤ halfAp.
+    if (Math.abs(delta) > 1e-12) {
+      const maxN = Math.floor((halfAp * halfAp) * Math.abs(delta) / (2 * Leff * Leff * lambda));
+      numVisibleRings = Math.max(0, maxN);
+      // separação radial entre primeiro e segundo anel
+      const r1 = Leff * Math.sqrt(2 * 1 * lambda / Math.abs(delta));
+      const r2 = Leff * Math.sqrt(2 * 2 * lambda / Math.abs(delta));
+      fringeSpacingMm = (r2 - r1) * 1e3;
+    } else {
+      fringeSpacingMm = Infinity;
+    }
+  }
+
+  // Varredura: desloca M2 em ±5λ a partir da posição atual e plota I_center
+  const scanCurve: { dx: number; I: number }[] = [];
+  const M = 400;
+  const span = 5 * lambda; // metros
+  for (let k = 0; k <= M; k++) {
+    const dx = -span + (2 * span * k) / M;
+    const d = delta + 2 * dx;
+    scanCurve.push({ dx: dx * 1e9, I: 0.5 * (1 + V * Math.cos(2 * Math.PI * d / lambda)) }); // dx em nm
+  }
+
+  return {
+    lambdaM: lambda,
+    pathDiffM: delta,
+    orderCenter,
+    centralIntensity,
+    fringeSpacingMm,
+    numVisibleRings,
+    intensityMap: map,
+    gridN: N,
+    scanCurve,
+  };
+}
