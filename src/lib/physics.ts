@@ -2463,3 +2463,145 @@ export function computeMichelson(p: MichelsonParams): MichelsonResults {
     scanCurve,
   };
 }
+
+// ============================================================================
+// EXP-27 · Espalhamento Compton
+// ============================================================================
+export const SPEED_OF_LIGHT = SPEED_C;          // alias (m/s)
+export const ELECTRON_MASS_KG = 9.1093837015e-31;
+export const ELECTRON_REST_ENERGY_KEV = 510.99895;
+export const COMPTON_WAVELENGTH_M = PLANCK_H / (ELECTRON_MASS_KG * SPEED_OF_LIGHT); // 2.4263e-12 m
+export const ELECTRON_CHARGE = ELECTRON_E;      // alias (C)
+export const CLASSICAL_ELECTRON_RADIUS_M = 2.8179403262e-15;
+
+export interface ComptonParams {
+  E0_keV: number;       // energia do fóton incidente
+  thetaDeg: number;     // ângulo de espalhamento do fóton
+}
+
+export interface ComptonResults {
+  lambda0_m: number;
+  lambdaPrime_m: number;
+  deltaLambda_m: number;
+  Eprime_keV: number;
+  K_electron_keV: number;
+  recoilPhiDeg: number;       // ângulo de recuo do elétron
+  energyRatio: number;        // E'/E0
+  kleinNishina: number;       // dσ/dΩ em barn/sr
+  scanByTheta: { theta: number; deltaLambda: number; Eprime: number; phi: number; KN: number }[];
+}
+
+/** Klein–Nishina dσ/dΩ (em barn/sr). α = E0/(m_e c²) */
+function kleinNishinaCrossSection(E0_keV: number, thetaRad: number): number {
+  const alpha = E0_keV / ELECTRON_REST_ENERGY_KEV;
+  const cosT = Math.cos(thetaRad);
+  const ratio = 1 / (1 + alpha * (1 - cosT));
+  const r0_cm = CLASSICAL_ELECTRON_RADIUS_M * 100; // cm
+  const dsig_cm2 = 0.5 * r0_cm * r0_cm * ratio * ratio * (ratio + 1 / ratio - Math.sin(thetaRad) ** 2);
+  return dsig_cm2 * 1e24; // → barn (1 barn = 1e-24 cm²)
+}
+
+export function computeCompton(p: ComptonParams): ComptonResults {
+  const E0 = Math.max(0.01, p.E0_keV);
+  const theta = (p.thetaDeg * Math.PI) / 180;
+  const lambda0 = (PLANCK_H * SPEED_OF_LIGHT) / (E0 * 1e3 * ELECTRON_CHARGE); // m
+  const dLambda = COMPTON_WAVELENGTH_M * (1 - Math.cos(theta));
+  const lambdaP = lambda0 + dLambda;
+  const Eprime = (PLANCK_H * SPEED_OF_LIGHT) / lambdaP / ELECTRON_CHARGE / 1e3; // keV
+  const K = E0 - Eprime;
+  // Ângulo de recuo do elétron: cot(φ) = (1 + α) tan(θ/2)
+  const alpha = E0 / ELECTRON_RES_E();
+  let phiDeg = 0;
+  if (Math.sin(theta) < 1e-9) {
+    phiDeg = theta === 0 ? 0 : 0;
+  } else {
+    const cotPhi = (1 + alpha) * Math.tan(theta / 2);
+    const phi = Math.atan(1 / Math.max(1e-12, cotPhi));
+    phiDeg = (phi * 180) / Math.PI;
+  }
+  const KN = kleinNishinaCrossSection(E0, theta);
+
+  const scan: ComptonResults["scanByTheta"] = [];
+  for (let t = 0; t <= 180; t += 1) {
+    const tr = (t * Math.PI) / 180;
+    const dL = COMPTON_WAVELENGTH_M * (1 - Math.cos(tr));
+    const lp = lambda0 + dL;
+    const Ep = (PLANCK_H * SPEED_OF_LIGHT) / lp / ELECTRON_CHARGE / 1e3;
+    let phi = 0;
+    if (t > 0 && t < 180) {
+      const cp = (1 + alpha) * Math.tan(tr / 2);
+      phi = (Math.atan(1 / Math.max(1e-12, cp)) * 180) / Math.PI;
+    } else if (t === 0) phi = 90;
+    scan.push({ theta: t, deltaLambda: dL, Eprime: Ep, phi, KN: kleinNishinaCrossSection(E0, tr) });
+  }
+
+  return {
+    lambda0_m: lambda0,
+    lambdaPrime_m: lambdaP,
+    deltaLambda_m: dLambda,
+    Eprime_keV: Eprime,
+    K_electron_keV: K,
+    recoilPhiDeg: phiDeg,
+    energyRatio: Eprime / E0,
+    kleinNishina: KN,
+    scanByTheta: scan,
+  };
+}
+
+function ELECTRON_RES_E() { return ELECTRON_REST_ENERGY_KEV; }
+
+// ============================================================================
+// EXP-28 · Relatividade especial
+// ============================================================================
+export type RelativityScenario = "dilation" | "contraction" | "addition" | "twin";
+
+export interface RelativityParams {
+  beta: number;            // v/c em [0, 0.9999]
+  scenario: RelativityScenario;
+  L0_m: number;            // comprimento próprio (m)
+  dt0_s: number;           // intervalo próprio (s)
+  u_over_c: number;        // velocidade do objeto no referencial S' (para soma de velocidades)
+  travelDistanceLy: number;// distância de ida (anos-luz), para gêmeos
+}
+
+export interface RelativityResults {
+  beta: number;
+  gamma: number;
+  // Dilatação / contração
+  dt_dilated_s: number;
+  L_contracted_m: number;
+  // Soma relativística (u + v) / (1 + uv/c²)
+  uPrimeOverC: number;
+  // Gêmeos
+  earthTimeYears: number;          // tempo medido na Terra (ida + volta)
+  travelerTimeYears: number;       // tempo próprio do viajante
+  ageDifferenceYears: number;
+  // Curva γ(β) para gráfico
+  gammaCurve: { beta: number; gamma: number }[];
+}
+
+export function computeRelativity(p: RelativityParams): RelativityResults {
+  const beta = Math.min(0.99999, Math.max(0, Math.abs(p.beta)));
+  const gamma = 1 / Math.sqrt(1 - beta * beta);
+  const dt = p.dt0_s * gamma;
+  const L = p.L0_m / gamma;
+  const u = Math.min(0.99999, Math.max(-0.99999, p.u_over_c));
+  const uP = (u + beta) / (1 + u * beta);
+  const dEarth = 2 * p.travelDistanceLy / Math.max(1e-6, beta); // anos (D em anos-luz / (β c) → β fração de c)
+  const dTrav = dEarth / gamma;
+  const curve: { beta: number; gamma: number }[] = [];
+  for (let i = 0; i <= 200; i++) {
+    const b = (i / 200) * 0.999;
+    curve.push({ beta: b, gamma: 1 / Math.sqrt(1 - b * b) });
+  }
+  return {
+    beta, gamma,
+    dt_dilated_s: dt,
+    L_contracted_m: L,
+    uPrimeOverC: uP,
+    earthTimeYears: dEarth,
+    travelerTimeYears: dTrav,
+    ageDifferenceYears: dEarth - dTrav,
+    gammaCurve: curve,
+  };
+}

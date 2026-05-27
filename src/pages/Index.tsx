@@ -238,6 +238,24 @@ const experiments = [
     description: "Divisão de amplitude com BS 50/50: anéis concêntricos, franjas retilíneas com inclinação e metrologia Δx = m·λ/2.",
     href: "/experimentos/michelson",
   },
+  {
+    id: "compton",
+    available: true,
+    icon: Atom,
+    area: "Física quântica",
+    title: "Espalhamento Compton",
+    description: "Δλ = (h/m_e c)(1 − cos θ): cinemática fóton-elétron, energia E'(θ) e seção de Klein–Nishina.",
+    href: "/experimentos/compton",
+  },
+  {
+    id: "relatividade",
+    available: true,
+    icon: Rocket,
+    area: "Relatividade",
+    title: "Relatividade especial",
+    description: "γ = 1/√(1−β²): dilatação do tempo, contração de Lorentz, soma de velocidades e paradoxo dos gêmeos.",
+    href: "/experimentos/relatividade",
+  },
 ];
 
 const Index = () => {
@@ -290,7 +308,7 @@ const Index = () => {
 
           <dl className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-6 animate-fade-in">
             {[
-            { k: "26", v: "Experimentos ativos" },
+            { k: "28", v: "Experimentos ativos" },
               { k: "Open", v: "Próximos por vir" },
               { k: "Tempo real", v: "Cálculos físicos" },
               { k: "IA", v: "Assistente contextual" },
