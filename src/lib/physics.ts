@@ -2467,12 +2467,11 @@ export function computeMichelson(p: MichelsonParams): MichelsonResults {
 // ============================================================================
 // EXP-27 · Espalhamento Compton
 // ============================================================================
-export const PLANCK_H = 6.62607015e-34;         // J·s
-export const SPEED_OF_LIGHT = 299792458;        // m/s
+export const SPEED_OF_LIGHT = SPEED_C;          // alias (m/s)
 export const ELECTRON_MASS_KG = 9.1093837015e-31;
 export const ELECTRON_REST_ENERGY_KEV = 510.99895;
 export const COMPTON_WAVELENGTH_M = PLANCK_H / (ELECTRON_MASS_KG * SPEED_OF_LIGHT); // 2.4263e-12 m
-export const ELECTRON_CHARGE = 1.602176634e-19; // C
+export const ELECTRON_CHARGE = ELECTRON_E;      // alias (C)
 export const CLASSICAL_ELECTRON_RADIUS_M = 2.8179403262e-15;
 
 export interface ComptonParams {
