@@ -2605,3 +2605,101 @@ export function computeRelativity(p: RelativityParams): RelativityResults {
     gammaCurve: curve,
   };
 }
+
+// ============================================================
+// EFEITO ZEEMAN — divisão de linhas espectrais em campo B
+// ============================================================
+export type ZeemanPolarization = "pi" | "sigma+" | "sigma-";
+export interface ZeemanLine {
+  mUpper: number; mLower: number;
+  energyShift_eV: number;
+  wavelengthShift_pm: number;
+  frequencyShift_GHz: number;
+  polarization: ZeemanPolarization;
+  intensity: number;
+}
+export interface ZeemanTransitionPreset {
+  name: string;
+  short: string;
+  lambda0_nm: number;
+  Su: number; Lu: number; Ju: number;
+  Sl: number; Ll: number; Jl: number;
+}
+export interface ZeemanParams {
+  presetIndex: number;
+  B_T: number;
+  observation: "longitudinal" | "transverse";
+}
+export interface ZeemanResults {
+  preset: ZeemanTransitionPreset;
+  gU: number; gL: number;
+  lines: ZeemanLine[];
+  scanByB: { B: number; maxShift_pm: number; nLines: number }[];
+  muB_eVT: number;
+  nu0_THz: number;
+  E0_eV: number;
+  totalSubU: number;
+  totalSubL: number;
+  type: "Normal" | "Anômalo";
+}
+export const ZEEMAN_PRESETS: ZeemanTransitionPreset[] = [
+  { name: "Cd 643.8 nm  (¹P₁ → ¹D₂)", short: "Cd", lambda0_nm: 643.847, Su:0, Lu:1, Ju:1, Sl:0, Ll:2, Jl:2 },
+  { name: "Zn 468.0 nm  (³S₁ → ³P₂)", short: "Zn", lambda0_nm: 468.014, Su:1, Lu:0, Ju:1, Sl:1, Ll:1, Jl:2 },
+  { name: "Na D₁ 589.6 nm  (²P₁/₂ → ²S₁/₂)", short: "Na-D1", lambda0_nm: 589.592, Su:0.5, Lu:1, Ju:0.5, Sl:0.5, Ll:0, Jl:0.5 },
+  { name: "Na D₂ 589.0 nm  (²P₃/₂ → ²S₁/₂)", short: "Na-D2", lambda0_nm: 588.995, Su:0.5, Lu:1, Ju:1.5, Sl:0.5, Ll:0, Jl:0.5 },
+];
+const ZEEMAN_MU_B_eV_T = 5.7883818012e-5;
+const ZEEMAN_HC_eV_nm = 1239.841984;
+const ZEEMAN_h_eV_s = 4.135667696e-15;
+const landeFactor = (S:number, L:number, J:number) => {
+  if (J === 0) return 0;
+  return 1 + (J*(J+1) + S*(S+1) - L*(L+1)) / (2*J*(J+1));
+};
+export function computeZeeman(p: ZeemanParams): ZeemanResults {
+  const preset = ZEEMAN_PRESETS[p.presetIndex] ?? ZEEMAN_PRESETS[0];
+  const gU = landeFactor(preset.Su, preset.Lu, preset.Ju);
+  const gL = landeFactor(preset.Sl, preset.Ll, preset.Jl);
+  const mUs: number[] = []; for (let m = -preset.Ju; m <= preset.Ju + 1e-9; m++) mUs.push(m);
+  const mLs: number[] = []; for (let m = -preset.Jl; m <= preset.Jl + 1e-9; m++) mLs.push(m);
+  const lines: ZeemanLine[] = [];
+  const E0 = ZEEMAN_HC_eV_nm / preset.lambda0_nm;
+  for (const mu of mUs) for (const ml of mLs) {
+    const dm = mu - ml;
+    if (Math.abs(dm) > 1.0001) continue;
+    const pol: ZeemanPolarization = Math.abs(dm) < 0.5 ? "pi" : dm > 0 ? "sigma+" : "sigma-";
+    if (p.observation === "longitudinal" && pol === "pi") continue;
+    const dE = ZEEMAN_MU_B_eV_T * p.B_T * (gU*mu - gL*ml);
+    const lp = ZEEMAN_HC_eV_nm / (E0 + dE);
+    const dLpm = (lp - preset.lambda0_nm) * 1000;
+    const dNuGHz = (dE / ZEEMAN_h_eV_s) / 1e9;
+    let intensity = 1;
+    if (p.observation === "transverse" && pol === "pi") intensity = 1.0;
+    if (p.observation === "transverse" && pol !== "pi") intensity = 0.7;
+    if (p.observation === "longitudinal") intensity = 1.0;
+    lines.push({ mUpper: mu, mLower: ml, energyShift_eV: dE, wavelengthShift_pm: dLpm,
+      frequencyShift_GHz: dNuGHz, polarization: pol, intensity });
+  }
+  // Scan vs B
+  const scanByB: ZeemanResults["scanByB"] = [];
+  const Bmax = Math.max(5, p.B_T * 1.5);
+  let maxCoef = 0;
+  for (const mu of mUs) for (const ml of mLs) {
+    if (Math.abs(mu - ml) > 1.0001) continue;
+    const c = Math.abs(gU*mu - gL*ml);
+    if (c > maxCoef) maxCoef = c;
+  }
+  for (let i = 0; i <= 60; i++) {
+    const B = (i / 60) * Bmax;
+    const maxMag = ZEEMAN_MU_B_eV_T * B * maxCoef;
+    const maxShift_pm = Math.abs((ZEEMAN_HC_eV_nm / (E0 + maxMag)) - preset.lambda0_nm) * 1000;
+    scanByB.push({ B, maxShift_pm, nLines: lines.length });
+  }
+  const nu0_THz = (E0 / ZEEMAN_h_eV_s) / 1e12;
+  const isNormal = preset.Su === 0 && preset.Sl === 0;
+  return {
+    preset, gU, gL, lines, scanByB,
+    muB_eVT: ZEEMAN_MU_B_eV_T, nu0_THz, E0_eV: E0,
+    totalSubU: mUs.length, totalSubL: mLs.length,
+    type: isNormal ? "Normal" : "Anômalo",
+  };
+}

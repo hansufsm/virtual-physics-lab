@@ -33,6 +33,7 @@ import TransientLRExperiment from "./pages/TransientLRExperiment.tsx";
 import MichelsonExperiment from "./pages/MichelsonExperiment.tsx";
 import ComptonExperiment from "./pages/ComptonExperiment.tsx";
 import RelativityExperiment from "./pages/RelativityExperiment.tsx";
+import ZeemanExperiment from "./pages/ZeemanExperiment.tsx";
 
 const queryClient = new QueryClient();
 
@@ -72,6 +73,7 @@ const App = () => (
           <Route path="/experimentos/michelson" element={<MichelsonExperiment />} />
           <Route path="/experimentos/compton" element={<ComptonExperiment />} />
           <Route path="/experimentos/relatividade" element={<RelativityExperiment />} />
+          <Route path="/experimentos/zeeman" element={<ZeemanExperiment />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

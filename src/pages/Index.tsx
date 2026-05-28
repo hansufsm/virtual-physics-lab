@@ -256,6 +256,15 @@ const experiments = [
     description: "γ = 1/√(1−β²): dilatação do tempo, contração de Lorentz, soma de velocidades e paradoxo dos gêmeos.",
     href: "/experimentos/relatividade",
   },
+  {
+    id: "zeeman",
+    available: true,
+    icon: Magnet,
+    area: "Física atômica",
+    title: "Efeito Zeeman",
+    description: "ΔE = g_J μ_B B m_J: desdobramento de níveis em B, componentes π e σ, efeito normal e anômalo.",
+    href: "/experimentos/zeeman",
+  },
 ];
 
 const Index = () => {
@@ -308,7 +317,7 @@ const Index = () => {
 
           <dl className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-6 animate-fade-in">
             {[
-            { k: "28", v: "Experimentos ativos" },
+            { k: "29", v: "Experimentos ativos" },
               { k: "Open", v: "Próximos por vir" },
               { k: "Tempo real", v: "Cálculos físicos" },
               { k: "IA", v: "Assistente contextual" },
