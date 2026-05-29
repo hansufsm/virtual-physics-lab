@@ -2725,7 +2725,6 @@ export interface DavissonResults {
   scanByV: { V: number; lambda_nm: number; firstPeak_deg: number }[];
   pattern: { phi: number; I: number }[];
 }
-const ELECTRON_MASS_KG = 9.1093837015e-31;
 export function computeDavissonGermer(p: DavissonParams): DavissonResults {
   const preset = DAVISSON_PRESETS[p.presetIndex] ?? DAVISSON_PRESETS[0];
   // λ relativística aproximada (não-rel ok até ~10 kV): λ(nm) = 1.226/√V
