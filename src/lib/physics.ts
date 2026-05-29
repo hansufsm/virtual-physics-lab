@@ -2703,3 +2703,243 @@ export function computeZeeman(p: ZeemanParams): ZeemanResults {
     type: isNormal ? "Normal" : "Anômalo",
   };
 }
+
+// ============================================================
+// EXP-30 · Davisson–Germer (difração de elétrons)
+// ============================================================
+export interface DavissonPreset { name: string; symbol: string; d_nm: number }
+export const DAVISSON_PRESETS: DavissonPreset[] = [
+  { name: "Níquel (111)", symbol: "Ni", d_nm: 0.215 },
+  { name: "Grafite (002)", symbol: "C",  d_nm: 0.335 },
+  { name: "Alumínio (111)", symbol: "Al", d_nm: 0.234 },
+  { name: "Cloreto de sódio (200)", symbol: "NaCl", d_nm: 0.282 },
+];
+export interface DavissonParams { presetIndex: number; voltage_V: number; maxOrder: number }
+export interface DavissonPeak { n: number; phi_deg: number; intensity: number }
+export interface DavissonResults {
+  preset: DavissonPreset;
+  lambda_nm: number;
+  momentum_kgms: number;
+  energy_eV: number;
+  peaks: DavissonPeak[];
+  scanByV: { V: number; lambda_nm: number; firstPeak_deg: number }[];
+  pattern: { phi: number; I: number }[];
+}
+const ELECTRON_MASS_KG = 9.1093837015e-31;
+export function computeDavissonGermer(p: DavissonParams): DavissonResults {
+  const preset = DAVISSON_PRESETS[p.presetIndex] ?? DAVISSON_PRESETS[0];
+  // λ relativística aproximada (não-rel ok até ~10 kV): λ(nm) = 1.226/√V
+  const V = Math.max(1e-3, p.voltage_V);
+  const lambda_nm = 1.22639 / Math.sqrt(V);
+  const energy_eV = V; // elétron acelerado por V volts
+  const p_kgms = Math.sqrt(2 * ELECTRON_MASS_KG * V * ELECTRON_CHARGE);
+  const peaks: DavissonPeak[] = [];
+  for (let n = 1; n <= p.maxOrder; n++) {
+    const s = (n * lambda_nm) / preset.d_nm;
+    if (s <= 1) {
+      const phi = Math.asin(s) * 180 / Math.PI;
+      peaks.push({ n, phi_deg: phi, intensity: 1 / n });
+    }
+  }
+  // Padrão de intensidade I(φ): soma de gaussianas estreitas centradas em cada pico
+  const pattern: DavissonResults["pattern"] = [];
+  const sigma = 1.2; // graus
+  for (let phi = 0; phi <= 90; phi += 0.5) {
+    let I = 0;
+    for (const pk of peaks) {
+      const dx = phi - pk.phi_deg;
+      I += pk.intensity * Math.exp(-(dx*dx)/(2*sigma*sigma));
+    }
+    pattern.push({ phi, I });
+  }
+  const scanByV: DavissonResults["scanByV"] = [];
+  for (let i = 1; i <= 60; i++) {
+    const Vi = (i/60) * Math.max(200, V*1.5);
+    const li = 1.22639/Math.sqrt(Vi);
+    const s1 = li / preset.d_nm;
+    scanByV.push({ V: Vi, lambda_nm: li, firstPeak_deg: s1 <= 1 ? Math.asin(s1)*180/Math.PI : 90 });
+  }
+  return { preset, lambda_nm, momentum_kgms: p_kgms, energy_eV, peaks, scanByV, pattern };
+}
+
+// ============================================================
+// EXP-31 · Stern–Gerlach
+// ============================================================
+export interface SternPreset { name: string; symbol: string; mass_amu: number; gFactor: number; spin: number }
+export const STERN_PRESETS: SternPreset[] = [
+  { name: "Prata (Ag)",  symbol: "Ag", mass_amu: 107.87, gFactor: 2.00232, spin: 0.5 },
+  { name: "Hidrogênio (H)", symbol: "H", mass_amu: 1.008, gFactor: 2.00232, spin: 0.5 },
+  { name: "Sódio (Na)",   symbol: "Na", mass_amu: 22.99, gFactor: 2.00232, spin: 0.5 },
+  { name: "Césio (Cs)",   symbol: "Cs", mass_amu: 132.91, gFactor: 2.00232, spin: 0.5 },
+];
+export interface SternParams {
+  presetIndex: number;
+  gradient_T_per_m: number; // dBz/dz
+  ovenTemp_K: number;
+  magnetLength_m: number;
+  driftLength_m: number;
+}
+export interface SternResults {
+  preset: SternPreset;
+  v_mean: number;
+  mu_z_JT: number;             // |μ_z| = g·m_s·μ_B (J/T)
+  force_N: number;             // |F| = μ_z · dB/dz
+  acc: number;
+  deflection_m: number;        // separação total Δz entre m_s=+1/2 e -1/2
+  spreadGauss_m: number;       // largura por distribuição térmica
+  beams: { ms: number; z_mm: number; weight: number }[];
+  scanByGrad: { grad: number; sep_mm: number }[];
+}
+const AMU_KG = 1.66053906660e-27;
+const K_B = 1.380649e-23;
+const MU_B_JT = 9.2740100783e-24;
+export function computeSternGerlach(p: SternParams): SternResults {
+  const preset = STERN_PRESETS[p.presetIndex] ?? STERN_PRESETS[0];
+  const m = preset.mass_amu * AMU_KG;
+  const v = Math.sqrt((2 * K_B * Math.max(1, p.ovenTemp_K)) / m);
+  const mu_z = preset.gFactor * 0.5 * MU_B_JT; // |m_s|=1/2
+  const F = mu_z * p.gradient_T_per_m;
+  const a = F / m;
+  const L = p.magnetLength_m, D = p.driftLength_m;
+  // Deflexão de um lado: z = (1/2) a (L/v)^2 + a L D / v^2
+  const t1 = L / v;
+  const z_one = 0.5 * a * t1*t1 + (a * L * D) / (v*v);
+  const sep = 2 * z_one;
+  const spread = 0.15 * z_one; // largura estatística aproximada
+  const beams = [
+    { ms: +0.5, z_mm: +z_one * 1000, weight: 0.5 },
+    { ms: -0.5, z_mm: -z_one * 1000, weight: 0.5 },
+  ];
+  const scanByGrad: SternResults["scanByGrad"] = [];
+  const gmax = Math.max(50, p.gradient_T_per_m * 1.5);
+  for (let i = 0; i <= 60; i++) {
+    const g = (i/60) * gmax;
+    const Fi = mu_z * g;
+    const ai = Fi / m;
+    const zi = 0.5 * ai * t1*t1 + (ai * L * D) / (v*v);
+    scanByGrad.push({ grad: g, sep_mm: 2 * zi * 1000 });
+  }
+  return { preset, v_mean: v, mu_z_JT: mu_z, force_N: F, acc: a, deflection_m: sep, spreadGauss_m: spread, beams, scanByGrad };
+}
+
+// ============================================================
+// EXP-32 · Efeito Hall quântico
+// ============================================================
+export interface QHallParams {
+  density_per_m2: number;   // n_s densidade superficial 2D
+  B_T: number;
+  current_uA: number;
+  temperature_K: number;
+}
+export interface QHallResults {
+  fillingFactor: number;
+  R_xy_Ohm: number;          // resistência de Hall (platô idealizado)
+  R_xx_Ohm: number;          // resistência longitudinal (picos entre platôs)
+  V_H_mV: number;            // tensão de Hall
+  R_K_Ohm: number;           // constante de von Klitzing
+  curve: { B: number; R_xy: number; R_xx: number; nu: number }[];
+  nearestPlateau: number;    // ν inteiro mais próximo
+  plateauR_Ohm: number;
+}
+const PLANCK_H_QH = 6.62607015e-34;
+const E_QH = 1.602176634e-19;
+const R_K = PLANCK_H_QH / (E_QH * E_QH); // 25812.807 Ω
+export function computeQuantumHall(p: QHallParams): QHallResults {
+  const safeB = Math.max(1e-3, p.B_T);
+  const nu = (p.density_per_m2 * PLANCK_H_QH) / (E_QH * safeB);
+  const nearest = Math.max(1, Math.round(nu));
+  // Quão "no platô" estamos: largura ~ 0.15 em ν
+  const dist = Math.abs(nu - nearest);
+  const platWidth = 0.18;
+  const onPlateau = Math.exp(-(dist*dist)/(2*platWidth*platWidth));
+  const Rxy_ideal = R_K / nearest;
+  const Rxy_classical = safeB / (p.density_per_m2 * E_QH);
+  const Rxy = onPlateau * Rxy_ideal + (1 - onPlateau) * Rxy_classical;
+  // R_xx pico na transição (entre platôs)
+  const trans = Math.exp(-Math.pow((nu - (nearest - 0.5)), 2) / (2*0.08*0.08))
+              + Math.exp(-Math.pow((nu - (nearest + 0.5)), 2) / (2*0.08*0.08));
+  const tempFactor = Math.exp(-Math.max(0, 4 - p.temperature_K)/10); // T↑ alarga
+  const Rxx = (trans + tempFactor*0.2) * 200; // Ω, escala arbitrária
+  const V_H_mV = (Rxy * p.current_uA * 1e-6) * 1e3;
+  const curve: QHallResults["curve"] = [];
+  const Bmax = Math.max(10, safeB * 1.5);
+  for (let i = 0; i <= 200; i++) {
+    const Bi = (i/200) * Bmax + 0.01;
+    const ni = (p.density_per_m2 * PLANCK_H_QH) / (E_QH * Bi);
+    const near = Math.max(1, Math.round(ni));
+    const d = Math.abs(ni - near);
+    const op = Math.exp(-(d*d)/(2*platWidth*platWidth));
+    const ry = op * (R_K/near) + (1-op) * (Bi / (p.density_per_m2 * E_QH));
+    const trI = Math.exp(-Math.pow((ni - (near - 0.5)), 2) / (2*0.08*0.08))
+              + Math.exp(-Math.pow((ni - (near + 0.5)), 2) / (2*0.08*0.08));
+    curve.push({ B: Bi, R_xy: ry, R_xx: (trI + tempFactor*0.2) * 200, nu: ni });
+  }
+  return { fillingFactor: nu, R_xy_Ohm: Rxy, R_xx_Ohm: Rxx, V_H_mV, R_K_Ohm: R_K, curve, nearestPlateau: nearest, plateauR_Ohm: Rxy_ideal };
+}
+
+// ============================================================
+// EXP-33 · Espalhamento de Rutherford
+// ============================================================
+export interface RutherfordParams {
+  energy_MeV: number;
+  Z_target: number;
+  z_projectile: number; // 2 para alfa
+  impactParameter_fm: number;
+}
+export interface RutherfordResults {
+  energy_J: number;
+  scatteringAngle_deg: number;
+  distance_min_fm: number;
+  diffCrossSection_b_per_sr: number; // barns/sr no ângulo atual
+  trajectory: { x: number; y: number }[]; // em fm
+  angleVsB: { b_fm: number; theta_deg: number }[];
+  csVsTheta: { theta: number; ds: number }[]; // barns/sr
+  k_eVfm: number; // Zz·e²/(4πε₀) em eV·fm = 1.439976 Z z
+}
+const COULOMB_K_eV_fm_per_Zz = 1.43996454; // e²/(4πε₀) em eV·nm = 1.44; em eV·fm
+export function computeRutherford(p: RutherfordParams): RutherfordResults {
+  const E_eV = p.energy_MeV * 1e6;
+  const k = COULOMB_K_eV_fm_per_Zz * p.Z_target * p.z_projectile; // eV·fm
+  const b = Math.max(1e-6, p.impactParameter_fm);
+  // cot(θ/2) = 2 E b / k  →  θ = 2 atan(k/(2 E b))
+  const theta = 2 * Math.atan(k / (2 * E_eV * b));
+  const thetaDeg = theta * 180 / Math.PI;
+  // r_min na trajetória (com momento angular): r_min = (k/(2E)) (1 + 1/sin(θ/2))
+  const a = k / (2 * E_eV); // semi-eixo do problema (fm)
+  const r_min = a * (1 + 1/Math.sin(theta/2));
+  // dσ/dΩ = (k/(4E))² / sin⁴(θ/2)  em fm²/sr;  1 b = 100 fm²  →  fm² = 0.01 b
+  const dsigma_fm2 = Math.pow(k/(4*E_eV), 2) / Math.pow(Math.sin(theta/2), 4);
+  const dsigma_b = dsigma_fm2 / 100; // barns/sr
+  // Trajetória hiperbólica plana, parametrizada por ν: r(ν) = a(e²-1)/(1 + e cos ν)
+  // Para Coulomb repulsivo: usa branch com (1 + e cos ν), e = 1/sin(θ/2)
+  const e = 1 / Math.sin(theta/2);
+  const semi = a * (e*e - 1);
+  const trajectory: { x: number; y: number }[] = [];
+  const nuMax = Math.acos(-1/e) - 1e-3;
+  for (let i = -100; i <= 100; i++) {
+    const nu = (i/100) * nuMax;
+    const r = semi / (1 + e * Math.cos(nu));
+    if (r > 0 && r < 1000) trajectory.push({ x: r*Math.cos(nu), y: r*Math.sin(nu) });
+  }
+  const angleVsB: RutherfordResults["angleVsB"] = [];
+  const bMax = Math.max(50, b*3);
+  for (let i = 1; i <= 80; i++) {
+    const bi = (i/80) * bMax;
+    const th = 2 * Math.atan(k / (2 * E_eV * bi));
+    angleVsB.push({ b_fm: bi, theta_deg: th * 180 / Math.PI });
+  }
+  const csVsTheta: RutherfordResults["csVsTheta"] = [];
+  for (let t = 1; t <= 179; t += 1) {
+    const tr = t * Math.PI / 180;
+    const ds = Math.pow(k/(4*E_eV), 2) / Math.pow(Math.sin(tr/2), 4) / 100;
+    csVsTheta.push({ theta: t, ds });
+  }
+  return {
+    energy_J: E_eV * 1.602176634e-19,
+    scatteringAngle_deg: thetaDeg,
+    distance_min_fm: r_min,
+    diffCrossSection_b_per_sr: dsigma_b,
+    trajectory, angleVsB, csVsTheta,
+    k_eVfm: k,
+  };
+}
