@@ -265,6 +265,42 @@ const experiments = [
     description: "ΔE = g_J μ_B B m_J: desdobramento de níveis em B, componentes π e σ, efeito normal e anômalo.",
     href: "/experimentos/zeeman",
   },
+  {
+    id: "davisson",
+    available: true,
+    icon: Waves,
+    area: "Mecânica quântica",
+    title: "Difração de elétrons (Davisson–Germer)",
+    description: "λ = h/p ≈ 1,226/√V nm: picos em d sen φ = nλ confirmam de Broglie.",
+    href: "/experimentos/davisson-germer",
+  },
+  {
+    id: "stern",
+    available: true,
+    icon: Magnet,
+    area: "Física quântica",
+    title: "Stern–Gerlach",
+    description: "F = μ_z ∂B/∂z: feixe atômico se divide em 2 (spin ½), evidenciando a quantização espacial.",
+    href: "/experimentos/stern-gerlach",
+  },
+  {
+    id: "qhall",
+    available: true,
+    icon: CircuitBoard,
+    area: "Matéria condensada",
+    title: "Efeito Hall quântico",
+    description: "Platôs R_xy = h/(νe²) e R_xx → 0: ν inteiro, estados de borda e padrão de von Klitzing.",
+    href: "/experimentos/hall-quantico",
+  },
+  {
+    id: "rutherford",
+    available: true,
+    icon: Atom,
+    area: "Física nuclear",
+    title: "Espalhamento de Rutherford",
+    description: "dσ/dΩ = (k/4E)²/sen⁴(θ/2): hipérbole de Coulomb, r_min e descoberta do núcleo.",
+    href: "/experimentos/rutherford",
+  },
 ];
 
 const Index = () => {
@@ -317,7 +353,7 @@ const Index = () => {
 
           <dl className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-6 animate-fade-in">
             {[
-            { k: "29", v: "Experimentos ativos" },
+            { k: "33", v: "Experimentos ativos" },
               { k: "Open", v: "Próximos por vir" },
               { k: "Tempo real", v: "Cálculos físicos" },
               { k: "IA", v: "Assistente contextual" },

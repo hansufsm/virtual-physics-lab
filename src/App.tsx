@@ -34,6 +34,10 @@ import MichelsonExperiment from "./pages/MichelsonExperiment.tsx";
 import ComptonExperiment from "./pages/ComptonExperiment.tsx";
 import RelativityExperiment from "./pages/RelativityExperiment.tsx";
 import ZeemanExperiment from "./pages/ZeemanExperiment.tsx";
+import DavissonExperiment from "./pages/DavissonExperiment.tsx";
+import SternGerlachExperiment from "./pages/SternGerlachExperiment.tsx";
+import QuantumHallExperiment from "./pages/QuantumHallExperiment.tsx";
+import RutherfordExperiment from "./pages/RutherfordExperiment.tsx";
 
 const queryClient = new QueryClient();
 
@@ -74,6 +78,10 @@ const App = () => (
           <Route path="/experimentos/compton" element={<ComptonExperiment />} />
           <Route path="/experimentos/relatividade" element={<RelativityExperiment />} />
           <Route path="/experimentos/zeeman" element={<ZeemanExperiment />} />
+          <Route path="/experimentos/davisson-germer" element={<DavissonExperiment />} />
+          <Route path="/experimentos/stern-gerlach" element={<SternGerlachExperiment />} />
+          <Route path="/experimentos/hall-quantico" element={<QuantumHallExperiment />} />
+          <Route path="/experimentos/rutherford" element={<RutherfordExperiment />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
