@@ -38,6 +38,10 @@ import DavissonExperiment from "./pages/DavissonExperiment.tsx";
 import SternGerlachExperiment from "./pages/SternGerlachExperiment.tsx";
 import QuantumHallExperiment from "./pages/QuantumHallExperiment.tsx";
 import RutherfordExperiment from "./pages/RutherfordExperiment.tsx";
+import FranckHertzExperiment from "./pages/FranckHertzExperiment.tsx";
+import MillikanExperiment from "./pages/MillikanExperiment.tsx";
+import NMRExperiment from "./pages/NMRExperiment.tsx";
+import LaserExperiment from "./pages/LaserExperiment.tsx";
 
 const queryClient = new QueryClient();
 
@@ -82,6 +86,10 @@ const App = () => (
           <Route path="/experimentos/stern-gerlach" element={<SternGerlachExperiment />} />
           <Route path="/experimentos/hall-quantico" element={<QuantumHallExperiment />} />
           <Route path="/experimentos/rutherford" element={<RutherfordExperiment />} />
+          <Route path="/experimentos/franck-hertz" element={<FranckHertzExperiment />} />
+          <Route path="/experimentos/millikan" element={<MillikanExperiment />} />
+          <Route path="/experimentos/rmn" element={<NMRExperiment />} />
+          <Route path="/experimentos/laser" element={<LaserExperiment />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

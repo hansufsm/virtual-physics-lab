@@ -2942,3 +2942,248 @@ export function computeRutherford(p: RutherfordParams): RutherfordResults {
     k_eVfm: k,
   };
 }
+
+// ============================================================================
+// EXP-34 · Franck–Hertz
+// ============================================================================
+export interface FranckHertzGas { name: string; excitation_eV: number; mfp_factor: number }
+export const FH_GASES: FranckHertzGas[] = [
+  { name: "Mercúrio (Hg)", excitation_eV: 4.9, mfp_factor: 1.0 },
+  { name: "Neônio (Ne)",   excitation_eV: 18.7, mfp_factor: 0.8 },
+  { name: "Argônio (Ar)",  excitation_eV: 11.5, mfp_factor: 0.9 },
+];
+export interface FranckHertzParams {
+  gasName: string;
+  excitation_eV: number;
+  V_acc_max: number;     // tensão de aceleração máxima (V)
+  V_retard: number;      // potencial retardador (V)
+  T_C: number;           // temperatura (°C) — afeta densidade do vapor e largura
+}
+export interface FranckHertzResults {
+  curve: { V: number; I: number }[];   // I(V) em u.a.
+  peaks: { V: number; n: number }[];
+  spacing_V: number;
+  photon_nm: number;
+}
+export function computeFranckHertz(p: FranckHertzParams): FranckHertzResults {
+  const Ve = Math.max(0.5, p.excitation_eV);
+  const Vr = Math.max(0, p.V_retard);
+  const dens = 1 + Math.max(0, p.T_C - 80) / 120; // densidade aumenta com T
+  const sigma = 0.35 / dens;                       // largura dos picos
+  const N = 320;
+  const curve: { V: number; I: number }[] = [];
+  const Vmax = Math.max(Ve * 2, p.V_acc_max);
+  for (let i = 0; i <= N; i++) {
+    const V = (i / N) * Vmax;
+    // fundo crescente (corrente termiônica filtrada por retardador)
+    let I = Math.max(0, V - Vr) * 0.6;
+    // quedas em V = n*Ve + Vr (n = 1, 2, ...)
+    for (let n = 1; n < 12; n++) {
+      const Vp = n * Ve + Vr;
+      if (V > Vp - 3*sigma)
+        I -= 0.85 * (V * 0.25 + 1) * Math.exp(-Math.pow((V - Vp) / sigma, 2));
+    }
+    curve.push({ V, I: Math.max(0, I) });
+  }
+  const peaks: { V: number; n: number }[] = [];
+  for (let n = 1; n < 12; n++) {
+    const V = n * Ve + Vr;
+    if (V <= Vmax) peaks.push({ V, n });
+  }
+  const photon_nm = 1239.841984 / Ve;
+  return { curve, peaks, spacing_V: Ve, photon_nm };
+}
+
+// ============================================================================
+// EXP-35 · Millikan (gota de óleo)
+// ============================================================================
+export const ELEMENTARY_CHARGE = 1.602176634e-19;
+export interface MillikanParams {
+  radius_um: number;      // raio da gota (μm)
+  charges_n: number;      // número de cargas elementares
+  rho_oil: number;        // kg/m³
+  rho_air: number;        // kg/m³
+  eta: number;            // viscosidade do ar (Pa·s)
+  plateGap_mm: number;    // distância entre placas (mm)
+  voltage_V: number;      // tensão aplicada (V)
+  g: number;              // gravidade
+}
+export interface MillikanResults {
+  q: number;              // C
+  q_over_e: number;
+  mass_kg: number;
+  weight_N: number;
+  buoyancy_N: number;
+  E_Vm: number;
+  fE_N: number;
+  v_fall_mms: number;     // velocidade terminal de queda (sem campo)
+  v_rise_mms: number;     // velocidade terminal de subida (com campo)
+  net_N: number;          // força resultante com campo ligado
+  histogram: { e_units: number; count: number }[];
+}
+export function computeMillikan(p: MillikanParams): MillikanResults {
+  const r = p.radius_um * 1e-6;
+  const V = (4/3) * Math.PI * Math.pow(r, 3);
+  const mass = V * p.rho_oil;
+  const W = mass * p.g;
+  const B = V * p.rho_air * p.g;
+  const E = p.voltage_V / (p.plateGap_mm * 1e-3);
+  const q = p.charges_n * ELEMENTARY_CHARGE;
+  const fE = q * E;
+  const net = fE - (W - B);
+  const k = 6 * Math.PI * p.eta * r; // coeficiente de Stokes
+  const v_fall = (W - B) / k;        // m/s (positivo = para baixo)
+  const v_rise = net / k;            // m/s (positivo = para cima)
+  // histograma sintético de medidas — agrupado por múltiplos inteiros de e
+  const histogram: { e_units: number; count: number }[] = [];
+  for (let n = 1; n <= 8; n++) {
+    const dist = Math.abs(n - p.charges_n);
+    const count = Math.max(0, Math.round(20 * Math.exp(-dist*dist/1.5)));
+    histogram.push({ e_units: n, count });
+  }
+  return {
+    q, q_over_e: q / ELEMENTARY_CHARGE,
+    mass_kg: mass, weight_N: W, buoyancy_N: B,
+    E_Vm: E, fE_N: fE, net_N: net,
+    v_fall_mms: v_fall * 1000, v_rise_mms: v_rise * 1000,
+    histogram,
+  };
+}
+
+// ============================================================================
+// EXP-36 · Ressonância Magnética Nuclear (RMN)
+// ============================================================================
+export interface NMRNucleus { name: string; label: string; gamma_MHz_per_T: number; spin: string }
+export const NMR_NUCLEI: NMRNucleus[] = [
+  { name: "1H",  label: "¹H (próton)",  gamma_MHz_per_T: 42.577, spin: "1/2" },
+  { name: "13C", label: "¹³C",          gamma_MHz_per_T: 10.708, spin: "1/2" },
+  { name: "19F", label: "¹⁹F",          gamma_MHz_per_T: 40.078, spin: "1/2" },
+  { name: "31P", label: "³¹P",          gamma_MHz_per_T: 17.235, spin: "1/2" },
+];
+export interface NMRParams {
+  nucleusName: string;
+  B0_T: number;         // campo estático
+  freq_MHz: number;     // frequência RF aplicada
+  T1_ms: number;        // relaxação longitudinal
+  T2_ms: number;        // relaxação transversal
+  time_ms: number;      // tempo após pulso 90°
+}
+export interface NMRResults {
+  gamma_MHz_per_T: number;
+  larmor_MHz: number;
+  detuning_kHz: number;
+  Mz_over_M0: number;
+  Mxy_over_M0: number;
+  fid: { t: number; signal: number }[];   // FID amortecida
+  spectrum: { f: number; amp: number }[]; // Lorentziana centrada em Larmor
+}
+export function computeNMR(p: NMRParams): NMRResults {
+  const nuc = NMR_NUCLEI.find((n) => n.name === p.nucleusName) ?? NMR_NUCLEI[0];
+  const larmor = nuc.gamma_MHz_per_T * p.B0_T;
+  const detuning = (p.freq_MHz - larmor) * 1000; // kHz
+  const t = Math.max(0, p.time_ms);
+  const T1 = Math.max(0.01, p.T1_ms);
+  const T2 = Math.max(0.01, p.T2_ms);
+  // Após pulso 90°: Mz cresce de 0 → M0; Mxy decai de M0 → 0
+  const Mz = 1 - Math.exp(-t / T1);
+  const Mxy = Math.exp(-t / T2);
+  // FID
+  const fid: { t: number; signal: number }[] = [];
+  const omega = 2 * Math.PI * (detuning / 1000); // rad/ms (em torno do referencial girante)
+  const N = 240;
+  const tMax = Math.min(5 * T2, 200);
+  for (let i = 0; i <= N; i++) {
+    const tt = (i / N) * tMax;
+    fid.push({ t: tt, signal: Math.exp(-tt / T2) * Math.cos(omega * tt) });
+  }
+  // Espectro (lorentziana, FWHM = 1/(π T2) em kHz se T2 em ms)
+  const spectrum: { f: number; amp: number }[] = [];
+  const fwhm_kHz = 1000 / (Math.PI * T2);
+  const half = fwhm_kHz / 2;
+  const center = larmor * 1000; // kHz
+  for (let i = 0; i <= 200; i++) {
+    const f_kHz = center - 10 * fwhm_kHz + (i / 200) * 20 * fwhm_kHz;
+    const amp = (half * half) / (Math.pow(f_kHz - center, 2) + half * half);
+    spectrum.push({ f: f_kHz - center, amp });
+  }
+  return {
+    gamma_MHz_per_T: nuc.gamma_MHz_per_T,
+    larmor_MHz: larmor,
+    detuning_kHz: detuning,
+    Mz_over_M0: Mz, Mxy_over_M0: Mxy,
+    fid, spectrum,
+  };
+}
+
+// ============================================================================
+// EXP-37 · Laser e cavidade Fabry–Perot
+// ============================================================================
+export interface LaserParams {
+  L_mm: number;           // comprimento da cavidade (mm)
+  R1: number;             // refletividade espelho 1
+  R2: number;             // refletividade espelho 2 (acoplador)
+  lambda_nm: number;      // comprimento de onda central
+  gainBW_GHz: number;     // largura da curva de ganho (FWHM)
+  pump_ratio: number;     // bombeamento / limiar
+}
+export interface LaserResults {
+  fsr_GHz: number;        // free spectral range
+  finesse: number;
+  linewidth_MHz: number;  // largura de cada modo (FP passivo)
+  coherence_m: number;    // comprimento de coerência ~ c/Δν
+  threshold_factor: number;
+  output_power_au: number;
+  modes: { f_GHz: number; gain: number; lasing: boolean }[];
+  gainCurve: { f_GHz: number; g: number }[];
+  airy: { f_GHz: number; T: number }[]; // transmissão do FP em torno de 0
+}
+export function computeLaser(p: LaserParams): LaserResults {
+  const c = 299792458; // m/s
+  const L = p.L_mm * 1e-3;
+  const fsr_Hz = c / (2 * L);
+  const fsr_GHz = fsr_Hz / 1e9;
+  const R = Math.sqrt(p.R1 * p.R2);
+  const finesse = (Math.PI * Math.sqrt(R)) / (1 - R);
+  const linewidth_GHz = fsr_GHz / finesse;
+  const coherence = c / (linewidth_GHz * 1e9);
+  const f0 = c / (p.lambda_nm * 1e-9) / 1e9; // GHz (central)
+  // Modos longitudinais e curva de ganho gaussiana
+  const half = p.gainBW_GHz / 2;
+  const modes: LaserResults["modes"] = [];
+  const gainCurve: { f_GHz: number; g: number }[] = [];
+  const span = p.gainBW_GHz * 1.5;
+  for (let i = -200; i <= 200; i++) {
+    const df = (i / 200) * span;
+    const g = Math.exp(-Math.pow(df / half, 2) * Math.LN2);
+    gainCurve.push({ f_GHz: df, g });
+  }
+  const mMax = Math.ceil(span / fsr_GHz);
+  for (let m = -mMax; m <= mMax; m++) {
+    const df = m * fsr_GHz;
+    if (Math.abs(df) > span) continue;
+    const g = Math.exp(-Math.pow(df / half, 2) * Math.LN2);
+    const lasing = p.pump_ratio * g > 1;
+    modes.push({ f_GHz: df, gain: g, lasing });
+  }
+  // Função de Airy (transmissão do interferômetro FP)
+  const airy: { f_GHz: number; T: number }[] = [];
+  const F = (4 * R) / Math.pow(1 - R, 2);
+  for (let i = -200; i <= 200; i++) {
+    const df = (i / 200) * 2 * fsr_GHz;
+    const phi = 2 * Math.PI * df / fsr_GHz;
+    const T = 1 / (1 + F * Math.pow(Math.sin(phi / 2), 2));
+    airy.push({ f_GHz: df, T });
+  }
+  const lasingModes = modes.filter((m) => m.lasing).length;
+  const output = Math.max(0, p.pump_ratio - 1) * (1 - p.R2) * (1 + 0.05 * lasingModes);
+  // expor f central (informativo)
+  void f0;
+  return {
+    fsr_GHz, finesse,
+    linewidth_MHz: linewidth_GHz * 1000,
+    coherence_m: coherence,
+    threshold_factor: p.pump_ratio,
+    output_power_au: output,
+    modes, gainCurve, airy,
+  };
+}
