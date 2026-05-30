@@ -301,6 +301,42 @@ const experiments = [
     description: "dσ/dΩ = (k/4E)²/sen⁴(θ/2): hipérbole de Coulomb, r_min e descoberta do núcleo.",
     href: "/experimentos/rutherford",
   },
+  {
+    id: "franck-hertz",
+    available: true,
+    icon: Atom,
+    area: "Física atômica",
+    title: "Experimento de Franck–Hertz",
+    description: "Quedas periódicas em I(V) a cada 4,9 eV: prova direta da quantização de energia atômica.",
+    href: "/experimentos/franck-hertz",
+  },
+  {
+    id: "millikan",
+    available: true,
+    icon: Sparkles,
+    area: "Eletromagnetismo",
+    title: "Gota de óleo de Millikan",
+    description: "qE = (m − m_ar)g em gotas pulverizadas: medida direta de e e quantização da carga.",
+    href: "/experimentos/millikan",
+  },
+  {
+    id: "rmn",
+    available: true,
+    icon: Magnet,
+    area: "Física quântica",
+    title: "Ressonância Magnética Nuclear",
+    description: "ω = γB₀, pulso 90°, FID e relaxação T₁/T₂ — fundamentos da MRI.",
+    href: "/experimentos/rmn",
+  },
+  {
+    id: "laser",
+    available: true,
+    icon: Sun,
+    area: "Óptica",
+    title: "Laser e cavidade Fabry–Perot",
+    description: "ν_m = m·c/2L, finesse F = π√R/(1−R), curva de ganho e modos longitudinais.",
+    href: "/experimentos/laser",
+  },
 ];
 
 const Index = () => {
@@ -353,7 +389,7 @@ const Index = () => {
 
           <dl className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-6 animate-fade-in">
             {[
-            { k: "33", v: "Experimentos ativos" },
+            { k: "37", v: "Experimentos ativos" },
               { k: "Open", v: "Próximos por vir" },
               { k: "Tempo real", v: "Cálculos físicos" },
               { k: "IA", v: "Assistente contextual" },
