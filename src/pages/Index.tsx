@@ -337,6 +337,51 @@ const experiments = [
     description: "ν_m = m·c/2L, finesse F = π√R/(1−R), curva de ganho e modos longitudinais.",
     href: "/experimentos/laser",
   },
+  {
+    id: "corpo-negro",
+    available: true,
+    icon: Flame,
+    area: "Física quântica",
+    title: "Corpo negro e lei de Planck",
+    description: "B(λ,T) de Planck × Rayleigh–Jeans × Wien: λ_max = b/T e M = σT⁴.",
+    href: "/experimentos/corpo-negro",
+  },
+  {
+    id: "hidrogenio",
+    available: true,
+    icon: Atom,
+    area: "Física atômica",
+    title: "Átomo de hidrogênio",
+    description: "E_n = −13,6/n² e Rydberg: séries Lyman, Balmer, Paschen, Brackett e Pfund.",
+    href: "/experimentos/hidrogenio",
+  },
+  {
+    id: "tunelamento",
+    available: true,
+    icon: Lock,
+    area: "Mecânica quântica",
+    title: "Tunelamento quântico",
+    description: "T(E,a,V₀) em barreira retangular: STM, decaimento α e diodo túnel.",
+    href: "/experimentos/tunelamento",
+  },
+  {
+    id: "foucault",
+    available: true,
+    icon: Waves,
+    area: "Mecânica",
+    title: "Pêndulo de Foucault",
+    description: "Ω = Ω_⊕ sin φ: rotação do plano de oscilação evidencia a rotação da Terra.",
+    href: "/experimentos/foucault",
+  },
+  {
+    id: "rede-difracao",
+    available: true,
+    icon: AudioWaveform,
+    area: "Óptica ondulatória",
+    title: "Rede de difração e espectrômetro",
+    description: "d sin θ = mλ, dispersão dθ/dλ e poder resolvente R = m·N.",
+    href: "/experimentos/rede-difracao",
+  },
 ];
 
 const Index = () => {
@@ -389,7 +434,7 @@ const Index = () => {
 
           <dl className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-6 animate-fade-in">
             {[
-            { k: "37", v: "Experimentos ativos" },
+            { k: "42", v: "Experimentos ativos" },
               { k: "Open", v: "Próximos por vir" },
               { k: "Tempo real", v: "Cálculos físicos" },
               { k: "IA", v: "Assistente contextual" },
