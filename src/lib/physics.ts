@@ -3187,3 +3187,260 @@ export function computeLaser(p: LaserParams): LaserResults {
     modes, gainCurve, airy,
   };
 }
+
+// ============================================================================
+// EXP-38 · Corpo Negro (Lei de Planck)
+// ============================================================================
+const H_PLANCK = 6.62607015e-34;
+const C_LIGHT = 299792458;
+const K_BOLTZ = 1.380649e-23;
+const SIGMA_SB = 5.670374419e-8;
+const WIEN_B = 2.897771955e-3; // m·K
+
+export interface BlackbodyParams { T_K: number; lambdaMin_nm: number; lambdaMax_nm: number }
+export interface BlackbodyResults {
+  spectrum: { lambda_nm: number; B_planck: number; B_rj: number; B_wien: number }[];
+  peak_nm: number;        // lei de Wien
+  total_Wm2: number;      // Stefan-Boltzmann
+  peak_intensity: number;
+  color: string;          // estimativa de cor visual aproximada
+}
+export function computeBlackbody(p: BlackbodyParams): BlackbodyResults {
+  const T = Math.max(1, p.T_K);
+  const spectrum: BlackbodyResults["spectrum"] = [];
+  const N = 220;
+  const a = p.lambdaMin_nm, b = p.lambdaMax_nm;
+  let peakI = 0;
+  for (let i = 0; i <= N; i++) {
+    const lambda_nm = a + (i / N) * (b - a);
+    const lambda = lambda_nm * 1e-9;
+    const x = (H_PLANCK * C_LIGHT) / (lambda * K_BOLTZ * T);
+    const pre = (2 * H_PLANCK * C_LIGHT * C_LIGHT) / Math.pow(lambda, 5);
+    const B = pre / (Math.exp(Math.min(x, 700)) - 1);
+    const B_rj = (2 * C_LIGHT * K_BOLTZ * T) / Math.pow(lambda, 4);
+    const B_wien = pre * Math.exp(-Math.min(x, 700));
+    spectrum.push({ lambda_nm, B_planck: B, B_rj, B_wien });
+    if (B > peakI) peakI = B;
+  }
+  const peak_m = WIEN_B / T;
+  const total = SIGMA_SB * Math.pow(T, 4);
+  let color = "#7a7a7a";
+  if (T < 1000) color = "#3a0d04";
+  else if (T < 2000) color = "#d63a00";
+  else if (T < 3500) color = "#ff8a30";
+  else if (T < 5000) color = "#ffd07a";
+  else if (T < 7000) color = "#fff5e0";
+  else if (T < 10000) color = "#cfe2ff";
+  else color = "#8fb6ff";
+  return { spectrum, peak_nm: peak_m * 1e9, total_Wm2: total, peak_intensity: peakI, color };
+}
+
+// ============================================================================
+// EXP-39 · Átomo de Hidrogênio (Séries espectrais)
+// ============================================================================
+export const RYDBERG_H = 1.0967758e7; // 1/m
+export interface HSeries { name: string; n_low: number; region: string; color: string }
+export const H_SERIES: HSeries[] = [
+  { name: "Lyman",    n_low: 1, region: "UV",            color: "#a78bfa" },
+  { name: "Balmer",   n_low: 2, region: "Visível/NUV",   color: "#22d3ee" },
+  { name: "Paschen",  n_low: 3, region: "IV próximo",    color: "#f59e0b" },
+  { name: "Brackett", n_low: 4, region: "IV médio",      color: "#ef4444" },
+  { name: "Pfund",    n_low: 5, region: "IV longo",      color: "#84cc16" },
+];
+export interface HydrogenParams { seriesIndex: number; nMax: number }
+export interface HydrogenLine {
+  n_up: number; n_low: number;
+  lambda_nm: number; freq_THz: number;
+  energy_eV: number; visible: boolean;
+}
+export interface HydrogenResults {
+  series: HSeries;
+  lines: HydrogenLine[];
+  ionization_eV: number;
+  levels: { n: number; E_eV: number }[];
+}
+export function computeHydrogen(p: HydrogenParams): HydrogenResults {
+  const series = H_SERIES[Math.max(0, Math.min(H_SERIES.length - 1, p.seriesIndex))];
+  const nl = series.n_low;
+  const lines: HydrogenLine[] = [];
+  for (let nu = nl + 1; nu <= Math.max(nl + 1, p.nMax); nu++) {
+    const invL = RYDBERG_H * (1 / (nl * nl) - 1 / (nu * nu));
+    const lambda = 1 / invL;
+    const lambda_nm = lambda * 1e9;
+    const f = C_LIGHT / lambda;
+    const E_eV = (H_PLANCK * f) / 1.602176634e-19;
+    lines.push({
+      n_up: nu, n_low: nl,
+      lambda_nm, freq_THz: f / 1e12, energy_eV: E_eV,
+      visible: lambda_nm >= 380 && lambda_nm <= 780,
+    });
+  }
+  const levels: { n: number; E_eV: number }[] = [];
+  for (let n = 1; n <= Math.max(6, p.nMax); n++) levels.push({ n, E_eV: -13.605693 / (n * n) });
+  return { series, lines, ionization_eV: 13.605693, levels };
+}
+
+// ============================================================================
+// EXP-40 · Tunelamento Quântico (barreira retangular)
+// ============================================================================
+const ELECTRON_MASS = 9.1093837015e-31;
+const HBAR = 1.054571817e-34;
+const EV = 1.602176634e-19;
+export interface TunnelParams {
+  V0_eV: number;     // altura da barreira
+  a_nm: number;      // largura
+  E_eV: number;      // energia da partícula
+  mass_me: number;   // massa em unidades de m_e
+}
+export interface TunnelResults {
+  T: number; R: number;
+  k_invnm: number;   // número de onda fora (1/nm)
+  kappa_invnm: number; // dentro da barreira se E<V0
+  regime: "tunelamento (E<V0)" | "ressonante (E>V0)" | "limiar (E≈V0)";
+  T_curve_E: { E_eV: number; T: number }[];   // T vs E (com V0 fixo)
+  T_curve_a: { a_nm: number; T: number }[];   // T vs largura
+}
+function transmission(V0_eV: number, a_nm: number, E_eV: number, m_kg: number): number {
+  const a = a_nm * 1e-9;
+  const V = V0_eV * EV;
+  const E = E_eV * EV;
+  if (E <= 0) return 0;
+  if (Math.abs(E - V) < 1e-6 * Math.max(V, 1e-30)) {
+    const k = Math.sqrt(2 * m_kg * E) / HBAR;
+    return 1 / (1 + (k * a) * (k * a) / 4);
+  }
+  if (E < V) {
+    const kappa = Math.sqrt(2 * m_kg * (V - E)) / HBAR;
+    const arg = kappa * a;
+    const sh = Math.sinh(Math.min(arg, 350));
+    const denom = 1 + (V * V) / (4 * E * (V - E)) * sh * sh;
+    return 1 / denom;
+  } else {
+    const k2 = Math.sqrt(2 * m_kg * (E - V)) / HBAR;
+    const s = Math.sin(k2 * a);
+    const denom = 1 + (V * V) / (4 * E * (E - V)) * s * s;
+    return 1 / denom;
+  }
+}
+export function computeTunnel(p: TunnelParams): TunnelResults {
+  const m = p.mass_me * ELECTRON_MASS;
+  const T = transmission(p.V0_eV, p.a_nm, p.E_eV, m);
+  const k = Math.sqrt(2 * m * p.E_eV * EV) / HBAR;     // m^-1
+  const kappa = p.E_eV < p.V0_eV
+    ? Math.sqrt(2 * m * (p.V0_eV - p.E_eV) * EV) / HBAR
+    : 0;
+  const regime: TunnelResults["regime"] =
+    Math.abs(p.E_eV - p.V0_eV) < 0.01 ? "limiar (E≈V0)"
+      : p.E_eV < p.V0_eV ? "tunelamento (E<V0)" : "ressonante (E>V0)";
+  const T_curve_E: TunnelResults["T_curve_E"] = [];
+  for (let i = 0; i <= 200; i++) {
+    const E = (i / 200) * (3 * p.V0_eV) + 0.01;
+    T_curve_E.push({ E_eV: E, T: transmission(p.V0_eV, p.a_nm, E, m) });
+  }
+  const T_curve_a: TunnelResults["T_curve_a"] = [];
+  for (let i = 0; i <= 200; i++) {
+    const a = 0.05 + (i / 200) * 3;
+    T_curve_a.push({ a_nm: a, T: transmission(p.V0_eV, a, p.E_eV, m) });
+  }
+  return { T, R: 1 - T, k_invnm: k / 1e9, kappa_invnm: kappa / 1e9, regime, T_curve_E, T_curve_a };
+}
+
+// ============================================================================
+// EXP-41 · Pêndulo de Foucault
+// ============================================================================
+export const OMEGA_EARTH = 7.2921159e-5; // rad/s
+export interface FoucaultParams {
+  L_m: number;            // comprimento do fio
+  latitude_deg: number;   // latitude φ
+  amplitude_deg: number;  // amplitude inicial
+  time_s: number;         // instante de observação
+  g: number;
+}
+export interface FoucaultResults {
+  T_s: number;            // período do pêndulo
+  omega_pend: number;     // 2π/T
+  omega_prec: number;     // Ω sin φ (rad/s)
+  T_prec_h: number;       // período de precessão (h)
+  rotation_deg: number;   // rotação acumulada do plano em t
+  trace: { x: number; y: number }[];
+}
+export function computeFoucault(p: FoucaultParams): FoucaultResults {
+  const T = 2 * Math.PI * Math.sqrt(p.L_m / p.g);
+  const omega = 2 * Math.PI / T;
+  const phi = (p.latitude_deg * Math.PI) / 180;
+  const omegaPrec = OMEGA_EARTH * Math.sin(phi);
+  const Tprec_s = omegaPrec !== 0 ? (2 * Math.PI) / Math.abs(omegaPrec) : Infinity;
+  const Tprec_h = Tprec_s / 3600;
+  const t = Math.max(0, p.time_s);
+  const rot_deg = (omegaPrec * t * 180) / Math.PI;
+  // Curva: roseta de Foucault (amplitude * cos(ω t) girada por Ω sin φ · t)
+  const A = (p.amplitude_deg * Math.PI / 180) * p.L_m;
+  const trace: { x: number; y: number }[] = [];
+  const N = 600;
+  const tEnd = Math.max(t, Math.min(Tprec_s, T * 60));
+  for (let i = 0; i <= N; i++) {
+    const tt = (i / N) * tEnd;
+    const r = A * Math.cos(omega * tt);
+    const th = omegaPrec * tt;
+    trace.push({ x: r * Math.cos(th), y: r * Math.sin(th) });
+  }
+  return { T_s: T, omega_pend: omega, omega_prec: omegaPrec, T_prec_h: Tprec_h, rotation_deg: rot_deg, trace };
+}
+
+// ============================================================================
+// EXP-42 · Difração por Rede (espectrômetro)
+// ============================================================================
+export interface GratingParams {
+  N_per_mm: number;     // linhas por mm
+  lambda_nm: number;
+  N_total: number;      // número total de fendas iluminadas (poder resolvente)
+  angleMax_deg: number; // janela de varredura (±)
+}
+export interface GratingLine { m: number; angle_deg: number; visible: boolean }
+export interface GratingResults {
+  d_um: number;          // espaçamento da rede (μm)
+  d_nm: number;
+  orders: GratingLine[];
+  dispersion_deg_per_nm: number; // dθ/dλ em m=1
+  resolving_power: number;       // R = m·N
+  intensity: { angle_deg: number; I: number }[];
+}
+export function computeGrating(p: GratingParams): GratingResults {
+  const d = 1 / (p.N_per_mm * 1000); // m
+  const lambda = p.lambda_nm * 1e-9;
+  const orders: GratingLine[] = [];
+  const mMax = Math.floor(d / lambda);
+  for (let m = -mMax; m <= mMax; m++) {
+    const s = (m * lambda) / d;
+    if (Math.abs(s) > 1) continue;
+    const ang = (Math.asin(s) * 180) / Math.PI;
+    if (Math.abs(ang) > p.angleMax_deg) continue;
+    orders.push({ m, angle_deg: ang, visible: true });
+  }
+  // Padrão de intensidade I(θ) = [sin(N·δ/2)/sin(δ/2)]² (sem envelope de fenda única)
+  const intensity: { angle_deg: number; I: number }[] = [];
+  const N = Math.max(2, Math.round(p.N_total));
+  const Npts = 600;
+  for (let i = 0; i <= Npts; i++) {
+    const ang = -p.angleMax_deg + (i / Npts) * 2 * p.angleMax_deg;
+    const theta = (ang * Math.PI) / 180;
+    const delta = (2 * Math.PI * d * Math.sin(theta)) / lambda;
+    const s2 = Math.sin(delta / 2);
+    const num = Math.sin((N * delta) / 2);
+    const I = Math.abs(s2) < 1e-9 ? 1 : Math.pow(num / (N * s2), 2);
+    intensity.push({ angle_deg: ang, I });
+  }
+  // Dispersão angular em m=1: dθ/dλ = m/(d cos θ)
+  const sin1 = lambda / d;
+  let disp = 0;
+  if (Math.abs(sin1) <= 1) {
+    const cos1 = Math.sqrt(1 - sin1 * sin1);
+    disp = (1 / (d * cos1)) * 1e-9 * (180 / Math.PI); // deg/nm
+  }
+  return {
+    d_um: d * 1e6, d_nm: d * 1e9,
+    orders, dispersion_deg_per_nm: disp,
+    resolving_power: 1 * N,
+    intensity,
+  };
+}
