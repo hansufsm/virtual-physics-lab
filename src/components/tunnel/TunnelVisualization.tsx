@@ -1,4 +1,4 @@
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ReferenceArea } from "recharts";
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine } from "recharts";
 import type { TunnelParams, TunnelResults } from "@/lib/physics";
 
 export const TunnelVisualization = ({ params, results }: { params: TunnelParams; results: TunnelResults }) => {
