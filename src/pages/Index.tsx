@@ -382,6 +382,51 @@ const experiments = [
     description: "d sin θ = mλ, dispersão dθ/dλ e poder resolvente R = m·N.",
     href: "/experimentos/rede-difracao",
   },
+  {
+    id: "queda-livre",
+    available: true,
+    icon: Rocket,
+    area: "Mecânica",
+    title: "Queda livre e gravidade",
+    description: "h = ½g·t² e v = √(2gh): compare vácuo e arrasto, veja velocidade terminal v_t = mg/b.",
+    href: "/experimentos/queda-livre",
+  },
+  {
+    id: "plano-inclinado",
+    available: true,
+    icon: Activity,
+    area: "Mecânica",
+    title: "Plano inclinado com atrito",
+    description: "F∥ = mg sin θ, μ_s, μ_k e ângulo crítico θ_c = arctan(μ_s): quando o bloco desliza?",
+    href: "/experimentos/plano-inclinado",
+  },
+  {
+    id: "mola-hooke",
+    available: true,
+    icon: Waves,
+    area: "Oscilações",
+    title: "Lei de Hooke e MHS",
+    description: "F = −kx, T = 2π√(m/k), energia ½kA² e associação série/paralelo de molas.",
+    href: "/experimentos/mola-hooke",
+  },
+  {
+    id: "arquimedes",
+    available: true,
+    icon: Circle,
+    area: "Fluidos",
+    title: "Princípio de Arquimedes",
+    description: "E = ρ_f·V_sub·g: flutuação, peso aparente e por que só 10% do iceberg aparece.",
+    href: "/experimentos/arquimedes",
+  },
+  {
+    id: "espelhos-esfericos",
+    available: true,
+    icon: Eye,
+    area: "Óptica geométrica",
+    title: "Espelhos esféricos",
+    description: "1/f = 1/p + 1/p' e A = −p'/p: traçado de raios, imagens reais/virtuais, côncavo e convexo.",
+    href: "/experimentos/espelhos-esfericos",
+  },
 ];
 
 const Index = () => {
@@ -434,7 +479,7 @@ const Index = () => {
 
           <dl className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-6 animate-fade-in">
             {[
-            { k: "42", v: "Experimentos ativos" },
+            { k: "47", v: "Experimentos ativos" },
               { k: "Open", v: "Próximos por vir" },
               { k: "Tempo real", v: "Cálculos físicos" },
               { k: "IA", v: "Assistente contextual" },

@@ -3444,3 +3444,258 @@ export function computeGrating(p: GratingParams): GratingResults {
     intensity,
   };
 }
+
+// ============================================================================
+// EXP-43 · Queda livre & aceleração da gravidade
+// ============================================================================
+export interface FreefallParams {
+  h0_m: number;        // altura inicial
+  v0_m_s: number;      // velocidade inicial (positiva = para baixo)
+  g: number;           // gravidade m/s²
+  mass_kg: number;     // massa do objeto
+  drag: boolean;       // ativa resistência do ar (modelo linear)
+  k_drag: number;      // coeficiente linear b (F_d = -b·v)
+}
+export interface FreefallResults {
+  t_fall_s: number;        // tempo para tocar o solo (sem arrasto: √(2h/g))
+  v_impact_m_s: number;    // velocidade no impacto (sem arrasto: √(2gh))
+  v_terminal_m_s: number;  // m·g/b (se houver arrasto)
+  E_kin_J: number;         // ½mv² no impacto
+  trajectory: { t: number; y: number; v: number; a: number }[];
+  trajectoryNoDrag: { t: number; y: number; v: number }[];
+}
+export function computeFreefall(p: FreefallParams): FreefallResults {
+  const g = Math.max(0.01, p.g);
+  const h = Math.max(0.01, p.h0_m);
+  const m = Math.max(0.001, p.mass_kg);
+  const b = Math.max(0, p.k_drag);
+  // sem arrasto (analítico)
+  const t_no = (-p.v0_m_s + Math.sqrt(p.v0_m_s * p.v0_m_s + 2 * g * h)) / g;
+  const v_no = p.v0_m_s + g * t_no;
+  // integração RK simples para arrasto linear
+  let t = 0, y = h, v = p.v0_m_s;
+  const dt = Math.max(0.001, t_no / 400);
+  const traj: { t: number; y: number; v: number; a: number }[] = [{ t, y, v, a: g - (b / m) * v }];
+  const trajNo: { t: number; y: number; v: number }[] = [];
+  while (y > 0 && t < t_no * 8 + 1) {
+    const a = g - (p.drag ? (b / m) * v : 0);
+    v += a * dt;
+    y -= v * dt;
+    t += dt;
+    if (traj.length < 400) traj.push({ t, y: Math.max(0, y), v, a });
+  }
+  const t_fall = t, v_imp = v;
+  // curva sem arrasto (para comparação)
+  const N = 60;
+  for (let i = 0; i <= N; i++) {
+    const tt = (i / N) * t_no;
+    trajNo.push({ t: tt, y: h - p.v0_m_s * tt - 0.5 * g * tt * tt, v: p.v0_m_s + g * tt });
+  }
+  return {
+    t_fall_s: p.drag ? t_fall : t_no,
+    v_impact_m_s: p.drag ? v_imp : v_no,
+    v_terminal_m_s: b > 0 ? (m * g) / b : Infinity,
+    E_kin_J: 0.5 * m * (p.drag ? v_imp : v_no) ** 2,
+    trajectory: traj,
+    trajectoryNoDrag: trajNo,
+  };
+}
+
+// ============================================================================
+// EXP-44 · Plano inclinado com atrito
+// ============================================================================
+export interface InclineParams {
+  angle_deg: number;
+  mass_kg: number;
+  mu_s: number;     // atrito estático
+  mu_k: number;     // atrito cinético
+  g: number;
+  length_m: number; // comprimento do plano
+}
+export interface InclineResults {
+  Fg_paral_N: number;        // m·g·sin θ
+  Fg_norm_N: number;         // m·g·cos θ
+  Normal_N: number;          // N = m·g·cos θ
+  F_atrito_max_N: number;    // μ_s·N
+  F_atrito_cin_N: number;    // μ_k·N
+  angle_critical_deg: number; // arctan(μ_s)
+  willMove: boolean;
+  acceleration_m_s2: number; // g(sin θ − μ_k cos θ) se move
+  t_descida_s: number;        // tempo para descer L
+  v_final_m_s: number;        // velocidade no fim
+  velocity: { t: number; v: number; x: number }[];
+}
+export function computeIncline(p: InclineParams): InclineResults {
+  const th = (p.angle_deg * Math.PI) / 180;
+  const m = Math.max(0.001, p.mass_kg);
+  const g = Math.max(0.01, p.g);
+  const N = m * g * Math.cos(th);
+  const Fpar = m * g * Math.sin(th);
+  const fs_max = Math.max(0, p.mu_s) * N;
+  const fk = Math.max(0, p.mu_k) * N;
+  const willMove = Fpar > fs_max;
+  const a = willMove ? g * (Math.sin(th) - p.mu_k * Math.cos(th)) : 0;
+  const L = Math.max(0.01, p.length_m);
+  const t_desc = a > 0 ? Math.sqrt((2 * L) / a) : Infinity;
+  const v_fin = a > 0 ? a * t_desc : 0;
+  const vel: { t: number; v: number; x: number }[] = [];
+  if (a > 0) {
+    const M = 80;
+    for (let i = 0; i <= M; i++) {
+      const tt = (i / M) * t_desc;
+      vel.push({ t: tt, v: a * tt, x: 0.5 * a * tt * tt });
+    }
+  }
+  return {
+    Fg_paral_N: Fpar, Fg_norm_N: m * g * Math.cos(th), Normal_N: N,
+    F_atrito_max_N: fs_max, F_atrito_cin_N: fk,
+    angle_critical_deg: (Math.atan(p.mu_s) * 180) / Math.PI,
+    willMove, acceleration_m_s2: a, t_descida_s: t_desc, v_final_m_s: v_fin,
+    velocity: vel,
+  };
+}
+
+// ============================================================================
+// EXP-45 · Lei de Hooke & MHS de uma mola
+// ============================================================================
+export type SpringAssoc = "single" | "series" | "parallel";
+export interface SpringParams {
+  k_N_per_m: number;   // mola principal
+  k2_N_per_m: number;  // segunda mola
+  assoc: SpringAssoc;
+  mass_kg: number;
+  amplitude_m: number;
+  time_s: number;      // instante atual
+  g: number;
+}
+export interface SpringResults {
+  k_eq_N_per_m: number;
+  T_s: number;          // período 2π√(m/k_eq)
+  freq_Hz: number;
+  omega_rad_s: number;
+  x_static_m: number;   // alongamento estático mg/k
+  x_t_m: number;        // x(t) = A·cos(ω·t)
+  v_t_m_s: number;      // ẋ(t)
+  a_t_m_s2: number;     // ẍ(t)
+  U_elastica_J: number; // ½·k·A²
+  E_total_J: number;    // mesma coisa (conservação)
+  trajectory: { t: number; x: number; v: number }[];
+}
+export function computeSpring(p: SpringParams): SpringResults {
+  const k1 = Math.max(0.001, p.k_N_per_m);
+  const k2 = Math.max(0.001, p.k2_N_per_m);
+  let k_eq = k1;
+  if (p.assoc === "series") k_eq = (k1 * k2) / (k1 + k2);
+  else if (p.assoc === "parallel") k_eq = k1 + k2;
+  const m = Math.max(0.001, p.mass_kg);
+  const omega = Math.sqrt(k_eq / m);
+  const T = (2 * Math.PI) / omega;
+  const A = p.amplitude_m;
+  const x = A * Math.cos(omega * p.time_s);
+  const v = -A * omega * Math.sin(omega * p.time_s);
+  const a = -A * omega * omega * Math.cos(omega * p.time_s);
+  const traj: { t: number; x: number; v: number }[] = [];
+  const M = 200;
+  for (let i = 0; i <= M; i++) {
+    const tt = (i / M) * 3 * T;
+    traj.push({ t: tt, x: A * Math.cos(omega * tt), v: -A * omega * Math.sin(omega * tt) });
+  }
+  return {
+    k_eq_N_per_m: k_eq, T_s: T, freq_Hz: 1 / T, omega_rad_s: omega,
+    x_static_m: (m * p.g) / k_eq, x_t_m: x, v_t_m_s: v, a_t_m_s2: a,
+    U_elastica_J: 0.5 * k_eq * A * A, E_total_J: 0.5 * k_eq * A * A,
+    trajectory: traj,
+  };
+}
+
+// ============================================================================
+// EXP-46 · Princípio de Arquimedes & empuxo
+// ============================================================================
+export interface Fluid { name: string; rho: number /* kg/m³ */ }
+export const FLUIDS: Fluid[] = [
+  { name: "Água (4 °C)", rho: 1000 },
+  { name: "Água do mar", rho: 1025 },
+  { name: "Óleo", rho: 920 },
+  { name: "Álcool etílico", rho: 789 },
+  { name: "Mercúrio", rho: 13546 },
+  { name: "Glicerina", rho: 1260 },
+];
+export interface ArchimedesParams {
+  rho_obj_kg_m3: number;       // densidade do objeto
+  volume_obj_L: number;         // volume em litros
+  rho_fluid_kg_m3: number;
+  g: number;
+}
+export interface ArchimedesResults {
+  mass_kg: number;
+  weight_N: number;
+  V_m3: number;
+  V_submerged_m3: number;
+  buoyancy_max_N: number;     // se totalmente submerso
+  buoyancy_eq_N: number;      // empuxo no equilíbrio (flutuando ou submerso)
+  apparent_weight_N: number;  // P − E (peso aparente quando totalmente submerso)
+  floats: boolean;
+  fraction_submerged: number; // 0 a 1
+  height_above_pct: number;   // % acima da linha d'água (se flutua)
+}
+export function computeArchimedes(p: ArchimedesParams): ArchimedesResults {
+  const V = Math.max(1e-9, p.volume_obj_L) * 1e-3;
+  const m = p.rho_obj_kg_m3 * V;
+  const W = m * p.g;
+  const E_full = p.rho_fluid_kg_m3 * V * p.g;
+  const floats = p.rho_obj_kg_m3 < p.rho_fluid_kg_m3;
+  const frac = floats ? p.rho_obj_kg_m3 / p.rho_fluid_kg_m3 : 1;
+  const Vs = V * frac;
+  const E_eq = p.rho_fluid_kg_m3 * Vs * p.g;
+  return {
+    mass_kg: m, weight_N: W, V_m3: V, V_submerged_m3: Vs,
+    buoyancy_max_N: E_full, buoyancy_eq_N: E_eq,
+    apparent_weight_N: W - E_full,
+    floats, fraction_submerged: frac, height_above_pct: (1 - frac) * 100,
+  };
+}
+
+// ============================================================================
+// EXP-47 · Espelhos esféricos (côncavo e convexo)
+// ============================================================================
+export type MirrorKind = "concave" | "convex";
+export interface MirrorParams {
+  kind: MirrorKind;
+  R_cm: number;       // raio de curvatura (sempre positivo no slider)
+  p_cm: number;       // distância do objeto (sempre positiva)
+  h_obj_cm: number;   // altura do objeto
+}
+export interface MirrorResults {
+  f_cm: number;       // foco (positivo côncavo, negativo convexo)
+  p_cm: number;
+  pl_cm: number;      // distância da imagem (sinal: + real, − virtual)
+  m: number;          // aumento (−p'/p); + direita / − invertida
+  h_img_cm: number;
+  isReal: boolean;
+  isInverted: boolean;
+  isMagnified: boolean;
+  region: string;     // descrição qualitativa (entre F e C, além de C, etc.)
+}
+export function computeMirror(p: MirrorParams): MirrorResults {
+  const R = Math.max(0.5, p.R_cm);
+  const f = p.kind === "concave" ? R / 2 : -R / 2;
+  const po = Math.max(0.1, p.p_cm);
+  const denom = 1 / f - 1 / po;
+  const pl = Math.abs(denom) < 1e-9 ? Infinity : 1 / denom;
+  const m = -pl / po;
+  const h_img = m * p.h_obj_cm;
+  const isReal = isFinite(pl) && pl > 0;
+  const isInverted = m < 0;
+  let region = "";
+  if (p.kind === "convex") region = "Convexo: imagem sempre virtual, direita e menor";
+  else {
+    if (po < f) region = "Objeto entre F e o espelho — imagem virtual, direita e maior";
+    else if (po < R) region = "Objeto entre F e C — imagem real, invertida e maior";
+    else if (Math.abs(po - R) < 0.5) region = "Objeto sobre C — imagem real, invertida, mesmo tamanho";
+    else region = "Objeto além de C — imagem real, invertida e menor";
+  }
+  return {
+    f_cm: f, p_cm: po, pl_cm: pl, m, h_img_cm: h_img,
+    isReal, isInverted, isMagnified: Math.abs(m) > 1, region,
+  };
+}
