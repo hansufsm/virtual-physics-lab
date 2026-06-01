@@ -47,6 +47,11 @@ import HydrogenExperiment from "./pages/HydrogenExperiment.tsx";
 import TunnelExperiment from "./pages/TunnelExperiment.tsx";
 import FoucaultExperiment from "./pages/FoucaultExperiment.tsx";
 import GratingExperiment from "./pages/GratingExperiment.tsx";
+import FreefallExperiment from "./pages/FreefallExperiment.tsx";
+import InclineExperiment from "./pages/InclineExperiment.tsx";
+import SpringExperiment from "./pages/SpringExperiment.tsx";
+import ArchimedesExperiment from "./pages/ArchimedesExperiment.tsx";
+import MirrorExperiment from "./pages/MirrorExperiment.tsx";
 
 const queryClient = new QueryClient();
 
@@ -100,6 +105,11 @@ const App = () => (
           <Route path="/experimentos/tunelamento" element={<TunnelExperiment />} />
           <Route path="/experimentos/foucault" element={<FoucaultExperiment />} />
           <Route path="/experimentos/rede-difracao" element={<GratingExperiment />} />
+          <Route path="/experimentos/queda-livre" element={<FreefallExperiment />} />
+          <Route path="/experimentos/plano-inclinado" element={<InclineExperiment />} />
+          <Route path="/experimentos/mola-hooke" element={<SpringExperiment />} />
+          <Route path="/experimentos/arquimedes" element={<ArchimedesExperiment />} />
+          <Route path="/experimentos/espelhos-esfericos" element={<MirrorExperiment />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
