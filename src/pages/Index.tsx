@@ -427,6 +427,24 @@ const experiments = [
     description: "1/f = 1/p + 1/p' e A = −p'/p: traçado de raios, imagens reais/virtuais, côncavo e convexo.",
     href: "/experimentos/espelhos-esfericos",
   },
+  {
+    id: "oscilacoes-forcadas",
+    available: true,
+    icon: Waves,
+    area: "Oscilações",
+    title: "Oscilações forçadas e ressonância",
+    description: "m·ẍ + b·ẋ + k·x = F₀cos(ωt): curva A(ω), defasagem φ(ω), pico em ω_r e fator Q.",
+    href: "/experimentos/oscilacoes-forcadas",
+  },
+  {
+    id: "batimentos",
+    available: true,
+    icon: AudioWaveform,
+    area: "Oscilações",
+    title: "Batimentos e superposição",
+    description: "x = 2A·cos(π Δf t)·cos(2π f̄ t): frequência de batimento f_b = |f₁−f₂| e envelope.",
+    href: "/experimentos/batimentos",
+  },
 ];
 
 const Index = () => {
@@ -479,7 +497,7 @@ const Index = () => {
 
           <dl className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-6 animate-fade-in">
             {[
-            { k: "47", v: "Experimentos ativos" },
+            { k: "49", v: "Experimentos ativos" },
               { k: "Open", v: "Próximos por vir" },
               { k: "Tempo real", v: "Cálculos físicos" },
               { k: "IA", v: "Assistente contextual" },

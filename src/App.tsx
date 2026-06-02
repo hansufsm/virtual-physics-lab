@@ -52,6 +52,8 @@ import InclineExperiment from "./pages/InclineExperiment.tsx";
 import SpringExperiment from "./pages/SpringExperiment.tsx";
 import ArchimedesExperiment from "./pages/ArchimedesExperiment.tsx";
 import MirrorExperiment from "./pages/MirrorExperiment.tsx";
+import ForcedOscillatorExperiment from "./pages/ForcedOscillatorExperiment.tsx";
+import BeatsExperiment from "./pages/BeatsExperiment.tsx";
 
 const queryClient = new QueryClient();
 
@@ -110,6 +112,8 @@ const App = () => (
           <Route path="/experimentos/mola-hooke" element={<SpringExperiment />} />
           <Route path="/experimentos/arquimedes" element={<ArchimedesExperiment />} />
           <Route path="/experimentos/espelhos-esfericos" element={<MirrorExperiment />} />
+          <Route path="/experimentos/oscilacoes-forcadas" element={<ForcedOscillatorExperiment />} />
+          <Route path="/experimentos/batimentos" element={<BeatsExperiment />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
