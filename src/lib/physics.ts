@@ -3699,3 +3699,114 @@ export function computeMirror(p: MirrorParams): MirrorResults {
     isReal, isInverted, isMagnified: Math.abs(m) > 1, region,
   };
 }
+
+// ============================================================================
+// EXP-48 · Oscilações forçadas e ressonância
+// ============================================================================
+export interface ForcedParams {
+  mass_kg: number;
+  k_N_per_m: number;
+  b_N_s_per_m: number;
+  F0_N: number;
+  driveOmega_rad_s: number; // frequência da força externa
+  duration_s: number;
+}
+export interface ForcedResults {
+  omega0_rad_s: number;     // ω₀ = √(k/m)
+  gamma_per_s: number;      // γ = b/(2m)
+  Q: number;                // ω₀/(2γ)
+  omegaR_rad_s: number;     // pico da amplitude: √(ω₀² − 2γ²)
+  A_drive_m: number;        // amplitude estacionária na ω atual
+  phase_rad: number;        // defasagem φ
+  bandwidth_rad_s: number;  // Δω ≈ 2γ
+  Amax_m: number;           // amplitude no pico
+  sweep: { omega: number; A: number; phase: number }[]; // curva A(ω) e φ(ω)
+  trajectory: { t: number; x: number; F: number }[];    // resposta x(t) (estacionária)
+}
+export function computeForcedOscillator(p: ForcedParams): ForcedResults {
+  const m = Math.max(1e-6, p.mass_kg);
+  const k = Math.max(1e-6, p.k_N_per_m);
+  const b = Math.max(0, p.b_N_s_per_m);
+  const omega0 = Math.sqrt(k / m);
+  const gamma = b / (2 * m);
+  const Q = gamma > 0 ? omega0 / (2 * gamma) : Infinity;
+  const omegaR2 = omega0 * omega0 - 2 * gamma * gamma;
+  const omegaR = omegaR2 > 0 ? Math.sqrt(omegaR2) : 0;
+  const ampAt = (w: number) => (p.F0_N / m) / Math.sqrt((omega0 * omega0 - w * w) ** 2 + (2 * gamma * w) ** 2);
+  const phaseAt = (w: number) => Math.atan2(2 * gamma * w, omega0 * omega0 - w * w);
+  const A_drive = ampAt(p.driveOmega_rad_s);
+  const phase = phaseAt(p.driveOmega_rad_s);
+  const Amax = omegaR > 0 ? ampAt(omegaR) : ampAt(omega0);
+
+  const N = 240;
+  const wMax = Math.max(omega0 * 3, p.driveOmega_rad_s * 1.5, 1);
+  const sweep: { omega: number; A: number; phase: number }[] = [];
+  for (let i = 1; i <= N; i++) {
+    const w = (i / N) * wMax;
+    sweep.push({ omega: w, A: ampAt(w), phase: phaseAt(w) });
+  }
+
+  const dur = Math.max(0.1, p.duration_s);
+  const M = 400;
+  const trajectory: { t: number; x: number; F: number }[] = [];
+  for (let i = 0; i <= M; i++) {
+    const t = (i / M) * dur;
+    const x = A_drive * Math.cos(p.driveOmega_rad_s * t - phase);
+    const F = p.F0_N * Math.cos(p.driveOmega_rad_s * t);
+    trajectory.push({ t, x, F });
+  }
+
+  return {
+    omega0_rad_s: omega0,
+    gamma_per_s: gamma,
+    Q,
+    omegaR_rad_s: omegaR,
+    A_drive_m: A_drive,
+    phase_rad: phase,
+    bandwidth_rad_s: 2 * gamma,
+    Amax_m: Amax,
+    sweep,
+    trajectory,
+  };
+}
+
+// ============================================================================
+// EXP-49 · Batimentos (superposição de dois MHS)
+// ============================================================================
+export interface BeatsParams {
+  f1_Hz: number;
+  f2_Hz: number;
+  A_m: number;     // amplitude de cada componente
+  duration_s: number;
+}
+export interface BeatsResults {
+  fBeat_Hz: number;    // |f1 − f2|
+  fAvg_Hz: number;     // (f1 + f2)/2
+  Tbeat_s: number;     // 1/f_beat (envelope completo entre máximos)
+  TenvHalf_s: number;  // 1/(2 f_beat) (entre nós consecutivos)
+  Amax_m: number;      // 2A
+  trajectory: { t: number; x: number; env: number }[];
+}
+export function computeBeats(p: BeatsParams): BeatsResults {
+  const f1 = p.f1_Hz, f2 = p.f2_Hz;
+  const fBeat = Math.abs(f1 - f2);
+  const fAvg = (f1 + f2) / 2;
+  const dur = Math.max(0.01, p.duration_s);
+  const A = p.A_m;
+  const M = 800;
+  const trajectory: { t: number; x: number; env: number }[] = [];
+  for (let i = 0; i <= M; i++) {
+    const t = (i / M) * dur;
+    const env = 2 * A * Math.cos(Math.PI * (f1 - f2) * t);
+    const x = env * Math.cos(2 * Math.PI * fAvg * t);
+    trajectory.push({ t, x, env });
+  }
+  return {
+    fBeat_Hz: fBeat,
+    fAvg_Hz: fAvg,
+    Tbeat_s: fBeat > 0 ? 1 / fBeat : Infinity,
+    TenvHalf_s: fBeat > 0 ? 1 / (2 * fBeat) : Infinity,
+    Amax_m: 2 * A,
+    trajectory,
+  };
+}
