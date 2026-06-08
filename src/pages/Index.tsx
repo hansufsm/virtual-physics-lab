@@ -445,6 +445,42 @@ const experiments = [
     description: "x = 2A·cos(π Δf t)·cos(2π f̄ t): frequência de batimento f_b = |f₁−f₂| e envelope.",
     href: "/experimentos/batimentos",
   },
+  {
+    id: "carnot",
+    available: true,
+    icon: Flame,
+    area: "Termodinâmica",
+    title: "Ciclo de Carnot",
+    description: "Duas isotermas + duas adiabáticas entre Th e Tc. η = 1 − Tc/Th, comparação com Otto.",
+    href: "/experimentos/carnot",
+  },
+  {
+    id: "conducao-calor",
+    available: true,
+    icon: Thermometer,
+    area: "Termodinâmica",
+    title: "Condução de calor (Fourier)",
+    description: "q = ΔT/R_total em paredes compostas, resistências térmicas em série e perfil T(x).",
+    href: "/experimentos/conducao-calor",
+  },
+  {
+    id: "maxwell-boltzmann",
+    available: true,
+    icon: AudioWaveform,
+    area: "Termodinâmica",
+    title: "Maxwell-Boltzmann",
+    description: "Distribuição f(v) de velocidades moleculares: v_mp, v̄, v_rms para diferentes gases e T.",
+    href: "/experimentos/maxwell-boltzmann",
+  },
+  {
+    id: "radiacao-termica",
+    available: true,
+    icon: Sun,
+    area: "Termodinâmica",
+    title: "Radiação térmica (Stefan-Boltzmann)",
+    description: "P = εσA T⁴, troca radiativa com o ambiente e lei do deslocamento de Wien.",
+    href: "/experimentos/radiacao-termica",
+  },
 ];
 
 const Index = () => {
@@ -497,7 +533,7 @@ const Index = () => {
 
           <dl className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-6 animate-fade-in">
             {[
-            { k: "49", v: "Experimentos ativos" },
+            { k: "53", v: "Experimentos ativos" },
               { k: "Open", v: "Próximos por vir" },
               { k: "Tempo real", v: "Cálculos físicos" },
               { k: "IA", v: "Assistente contextual" },
