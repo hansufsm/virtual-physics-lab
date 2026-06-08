@@ -3810,3 +3810,224 @@ export function computeBeats(p: BeatsParams): BeatsResults {
     trajectory,
   };
 }
+
+// ============================================================================
+// EXP-50 · Ciclo de Carnot e máquinas térmicas
+// ============================================================================
+export interface CarnotParams {
+  moles: number;
+  gamma: number;     // Cp/Cv
+  Th_K: number;      // reservatório quente
+  Tc_K: number;      // reservatório frio
+  V1_L: number;      // início da expansão isotérmica quente
+  V2_L: number;      // fim da expansão isotérmica quente
+}
+export interface CarnotResults {
+  efficiency: number;          // 1 − Tc/Th
+  efficiencyOtto: number;      // 1 − 1/r^(γ−1), r = V1/V2
+  Qh_J: number;                // calor absorvido (quente)
+  Qc_J: number;                // calor rejeitado (frio, valor absoluto)
+  Wnet_J: number;              // trabalho líquido
+  V3_L: number;                // após adiabática 2→3
+  V4_L: number;                // após isotérmica fria 3→4
+  cycle: { P_Pa: number; V_L: number; T_K: number; leg: 1 | 2 | 3 | 4 }[];
+}
+export function computeCarnot(p: CarnotParams): CarnotResults {
+  const R = 8.314;
+  const n = Math.max(1e-6, p.moles);
+  const g = Math.max(1.01, p.gamma);
+  const Th = Math.max(1, p.Th_K);
+  const Tc = Math.max(1, Math.min(p.Tc_K, Th - 0.01));
+  const V1 = Math.max(1e-3, p.V1_L) * 1e-3; // m³
+  const V2 = Math.max(V1 * 1.0001, p.V2_L * 1e-3);
+  // adiabática 2→3: T·V^(γ−1) = const → V3 = V2 · (Th/Tc)^(1/(γ−1))
+  const V3 = V2 * Math.pow(Th / Tc, 1 / (g - 1));
+  // adiabática 4→1: V4 = V1 · (Th/Tc)^(1/(γ−1))
+  const V4 = V1 * Math.pow(Th / Tc, 1 / (g - 1));
+  const Qh = n * R * Th * Math.log(V2 / V1);
+  const Qc = n * R * Tc * Math.log(V3 / V4); // > 0, rejeitado
+  const Wnet = Qh - Qc;
+  const eff = 1 - Tc / Th;
+  const rOtto = V1 > 0 ? V2 / V1 : 1;
+  const effOtto = 1 - Math.pow(1 / Math.max(1.01, rOtto), g - 1);
+
+  const cycle: CarnotResults["cycle"] = [];
+  const seg = 60;
+  // 1→2 isotérmica Th
+  for (let i = 0; i <= seg; i++) {
+    const V = V1 + (V2 - V1) * (i / seg);
+    cycle.push({ V_L: V * 1e3, P_Pa: (n * R * Th) / V, T_K: Th, leg: 1 });
+  }
+  // 2→3 adiabática
+  const K23 = (n * R * Th) * Math.pow(V2, g - 1); // P·V^γ = nRT·V^(γ-1)
+  for (let i = 1; i <= seg; i++) {
+    const V = V2 + (V3 - V2) * (i / seg);
+    const P = K23 / Math.pow(V, g);
+    cycle.push({ V_L: V * 1e3, P_Pa: P, T_K: (P * V) / (n * R), leg: 2 });
+  }
+  // 3→4 isotérmica Tc
+  for (let i = 1; i <= seg; i++) {
+    const V = V3 + (V4 - V3) * (i / seg);
+    cycle.push({ V_L: V * 1e3, P_Pa: (n * R * Tc) / V, T_K: Tc, leg: 3 });
+  }
+  // 4→1 adiabática
+  const K41 = (n * R * Tc) * Math.pow(V4, g - 1);
+  for (let i = 1; i <= seg; i++) {
+    const V = V4 + (V1 - V4) * (i / seg);
+    const P = K41 / Math.pow(V, g);
+    cycle.push({ V_L: V * 1e3, P_Pa: P, T_K: (P * V) / (n * R), leg: 4 });
+  }
+  return { efficiency: eff, efficiencyOtto: effOtto, Qh_J: Qh, Qc_J: Qc, Wnet_J: Wnet, V3_L: V3 * 1e3, V4_L: V4 * 1e3, cycle };
+}
+
+// ============================================================================
+// EXP-51 · Condução de calor (Lei de Fourier)
+// ============================================================================
+export interface FourierLayer { name: string; k_W_mK: number; L_m: number }
+export interface FourierParams {
+  T_hot_K: number;
+  T_cold_K: number;
+  area_m2: number;
+  layers: FourierLayer[];
+}
+export interface FourierResults {
+  q_W: number;                 // taxa de calor
+  flux_W_m2: number;           // q/A
+  R_total_K_per_W: number;     // soma das resistências
+  interfaceTemps_K: number[];  // T em cada interface (n+1 pontos)
+  profile: { x_m: number; T_K: number }[];
+}
+export function computeFourier(p: FourierParams): FourierResults {
+  const dT = p.T_hot_K - p.T_cold_K;
+  const A = Math.max(1e-6, p.area_m2);
+  const R = p.layers.map((l) => l.L_m / (Math.max(1e-6, l.k_W_mK) * A));
+  const Rtot = R.reduce((a, b) => a + b, 0) || 1e-9;
+  const q = dT / Rtot;
+  const flux = q / A;
+  const interfaceTemps: number[] = [p.T_hot_K];
+  let T = p.T_hot_K;
+  for (const Ri of R) { T -= q * Ri; interfaceTemps.push(T); }
+  const profile: { x_m: number; T_K: number }[] = [];
+  let x = 0;
+  for (let i = 0; i < p.layers.length; i++) {
+    const L = p.layers[i].L_m;
+    const T0 = interfaceTemps[i], T1 = interfaceTemps[i + 1];
+    const steps = 20;
+    for (let s = 0; s <= steps; s++) {
+      const xi = x + (L * s) / steps;
+      const Ti = T0 + (T1 - T0) * (s / steps);
+      profile.push({ x_m: xi, T_K: Ti });
+    }
+    x += L;
+  }
+  return { q_W: q, flux_W_m2: flux, R_total_K_per_W: Rtot, interfaceTemps_K: interfaceTemps, profile };
+}
+
+// ============================================================================
+// EXP-52 · Distribuição de Maxwell-Boltzmann
+// ============================================================================
+export interface MaxwellParams {
+  T_K: number;
+  M_g_per_mol: number;   // massa molar
+  vMax_m_s: number;      // limite superior do gráfico
+}
+export interface MaxwellResults {
+  v_mp: number;          // mais provável √(2RT/M)
+  v_avg: number;         // √(8RT/(πM))
+  v_rms: number;         // √(3RT/M)
+  distribution: { v: number; f: number }[];   // f(v)
+  histogram: { v: number; count: number }[];  // amostragem por rejeição
+  samples: number;
+}
+export function computeMaxwell(p: MaxwellParams): MaxwellResults {
+  const R = 8.314;
+  const M = Math.max(1e-6, p.M_g_per_mol) * 1e-3; // kg/mol
+  const T = Math.max(1, p.T_K);
+  const a = M / (2 * R * T);
+  const v_mp = Math.sqrt(2 * R * T / M);
+  const v_avg = Math.sqrt(8 * R * T / (Math.PI * M));
+  const v_rms = Math.sqrt(3 * R * T / M);
+  const f = (v: number) => 4 * Math.PI * Math.pow(a / Math.PI, 1.5) * v * v * Math.exp(-a * v * v);
+  const vMax = Math.max(p.vMax_m_s, v_rms * 2.5);
+  const N = 240;
+  const distribution: { v: number; f: number }[] = [];
+  for (let i = 0; i <= N; i++) {
+    const v = (i / N) * vMax;
+    distribution.push({ v, f: f(v) });
+  }
+  // Amostragem pseudo-determinística (semente fixa) por rejeição
+  const samples = 2000;
+  const fmax = f(v_mp);
+  const bins = 40;
+  const histogram = Array.from({ length: bins }, (_, i) => ({ v: ((i + 0.5) / bins) * vMax, count: 0 }));
+  let s = 12345;
+  const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 0xffffffff; };
+  let collected = 0;
+  for (let i = 0; i < samples * 6 && collected < samples; i++) {
+    const v = rnd() * vMax;
+    const y = rnd() * fmax * 1.05;
+    if (y <= f(v)) {
+      const b = Math.min(bins - 1, Math.floor((v / vMax) * bins));
+      histogram[b].count++;
+      collected++;
+    }
+  }
+  return { v_mp, v_avg, v_rms, distribution, histogram, samples: collected };
+}
+
+// ============================================================================
+// EXP-53 · Radiação térmica (Stefan-Boltzmann & Wien)
+// ============================================================================
+export interface StefanParams {
+  T1_K: number;            // corpo emissor
+  T2_K: number;            // ambiente
+  emissivity: number;      // ε ∈ [0,1]
+  area_m2: number;
+}
+export interface StefanResults {
+  P_emitted_W: number;     // εσA T1^4
+  P_absorbed_W: number;    // εσA T2^4 (ambiente como corpo negro)
+  P_net_W: number;         // εσA (T1^4 − T2^4)
+  lambda_max_m: number;    // Wien: b/T1
+  flux_W_m2: number;       // εσ T1^4
+  spectrum: { lambda_nm: number; B: number }[];   // radiância espectral de Planck (T1)
+  curveT: { T_K: number; P: number }[];           // varredura P(T)
+}
+export function computeStefan(p: StefanParams): StefanResults {
+  const sigma = 5.670374419e-8;
+  const b = 2.897771955e-3;
+  const h = 6.62607015e-34, c = 2.99792458e8, kB = 1.380649e-23;
+  const eps = Math.max(0, Math.min(1, p.emissivity));
+  const A = Math.max(0, p.area_m2);
+  const T1 = Math.max(1, p.T1_K);
+  const T2 = Math.max(1, p.T2_K);
+  const Pe = eps * sigma * A * Math.pow(T1, 4);
+  const Pa = eps * sigma * A * Math.pow(T2, 4);
+  const lambdaMax = b / T1;
+  const planck = (lam: number, T: number) => {
+    const x = (h * c) / (lam * kB * T);
+    return (2 * h * c * c) / Math.pow(lam, 5) / (Math.exp(x) - 1);
+  };
+  const spectrum: { lambda_nm: number; B: number }[] = [];
+  const lamMaxPlot = Math.max(lambdaMax * 4, 3000e-9);
+  const N = 240;
+  for (let i = 1; i <= N; i++) {
+    const lam = (i / N) * lamMaxPlot;
+    spectrum.push({ lambda_nm: lam * 1e9, B: planck(lam, T1) });
+  }
+  const curveT: { T_K: number; P: number }[] = [];
+  const Tmax = Math.max(T1, T2) * 1.5 + 100;
+  for (let i = 1; i <= 80; i++) {
+    const T = (i / 80) * Tmax;
+    curveT.push({ T_K: T, P: eps * sigma * A * Math.pow(T, 4) });
+  }
+  return {
+    P_emitted_W: Pe,
+    P_absorbed_W: Pa,
+    P_net_W: Pe - Pa,
+    lambda_max_m: lambdaMax,
+    flux_W_m2: eps * sigma * Math.pow(T1, 4),
+    spectrum,
+    curveT,
+  };
+}
