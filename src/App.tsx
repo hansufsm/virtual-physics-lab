@@ -54,6 +54,10 @@ import ArchimedesExperiment from "./pages/ArchimedesExperiment.tsx";
 import MirrorExperiment from "./pages/MirrorExperiment.tsx";
 import ForcedOscillatorExperiment from "./pages/ForcedOscillatorExperiment.tsx";
 import BeatsExperiment from "./pages/BeatsExperiment.tsx";
+import CarnotExperiment from "./pages/CarnotExperiment.tsx";
+import FourierExperiment from "./pages/FourierExperiment.tsx";
+import MaxwellExperiment from "./pages/MaxwellExperiment.tsx";
+import StefanExperiment from "./pages/StefanExperiment.tsx";
 
 const queryClient = new QueryClient();
 
@@ -114,6 +118,10 @@ const App = () => (
           <Route path="/experimentos/espelhos-esfericos" element={<MirrorExperiment />} />
           <Route path="/experimentos/oscilacoes-forcadas" element={<ForcedOscillatorExperiment />} />
           <Route path="/experimentos/batimentos" element={<BeatsExperiment />} />
+          <Route path="/experimentos/carnot" element={<CarnotExperiment />} />
+          <Route path="/experimentos/conducao-calor" element={<FourierExperiment />} />
+          <Route path="/experimentos/maxwell-boltzmann" element={<MaxwellExperiment />} />
+          <Route path="/experimentos/radiacao-termica" element={<StefanExperiment />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
