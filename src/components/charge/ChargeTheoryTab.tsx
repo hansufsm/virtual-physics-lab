@@ -1,40 +1,32 @@
-export const ChargeTheoryTab = () => (
-  <div className="prose prose-sm max-w-none text-foreground space-y-3">
-    <h3 className="font-display text-lg font-semibold">Força de Lorentz</h3>
-    <p className="text-sm text-muted-foreground">
-      Uma partícula de carga <strong>q</strong> em campos elétrico <strong>E</strong> e magnético
-      <strong> B</strong> sofre a força:
-    </p>
-    <pre className="bg-secondary rounded-md p-3 text-sm font-mono">F = q(E + v × B)</pre>
+import { MarkdownMath } from "@/components/shared/MarkdownMath";
 
-    <h4 className="font-display font-semibold mt-4">Apenas campo E</h4>
-    <p className="text-sm text-muted-foreground">
-      A trajetória é parabólica (análoga ao lançamento oblíquo): aceleração constante na direção de E.
-    </p>
+const SOURCE = `Uma partícula de carga $q$ em campos elétrico $\\vec{E}$ e magnético $\\vec{B}$ sofre a força de Lorentz:
 
-    <h4 className="font-display font-semibold">Apenas campo B</h4>
-    <p className="text-sm text-muted-foreground">
-      Movimento circular uniforme. O raio de Larmor e a frequência ciclotrônica são:
-    </p>
-    <pre className="bg-secondary rounded-md p-3 text-sm font-mono">r = mv / |q|B    f𝒸 = |q|B / (2π m)</pre>
+$$\\vec{F} = q(\\vec{E} + \\vec{v} \\times \\vec{B})$$
 
-    <h4 className="font-display font-semibold">Seletor de velocidades</h4>
-    <p className="text-sm text-muted-foreground">
-      Com E ⊥ B, partículas com v = E/B atravessam sem deflexão; as demais são desviadas.
-    </p>
+#### Apenas campo $E$
 
-    <h4 className="font-display font-semibold">Ciclotron</h4>
-    <p className="text-sm text-muted-foreground">
-      Em cada travessia do gap entre os “Dees” a partícula ganha energia <strong>qVₐ</strong>; o raio
-      cresce em espiral até atingir a velocidade máxima.
-    </p>
+A trajetória é parabólica (análoga ao lançamento oblíquo): aceleração constante na direção de $\\vec{E}$.
 
-    <h4 className="font-display font-semibold mt-4">Roteiro sugerido</h4>
-    <ul className="text-sm text-muted-foreground space-y-1 list-disc pl-5">
-      <li>No modo B puro, varie v₀ e verifique r ∝ v.</li>
-      <li>Compare f𝒸 ao mudar a massa: independente de v, mas inversa em m.</li>
-      <li>No seletor, ajuste E e B até v = E/B coincidir com v₀.</li>
-      <li>No ciclotron, observe espirais com Vₐ maior produzindo maior aceleração por volta.</li>
-    </ul>
-  </div>
-);
+#### Apenas campo $B$
+
+Movimento circular uniforme. O raio de Larmor e a frequência ciclotrônica são:
+
+$$r = \\frac{mv}{|q|B}, \\qquad f_c = \\frac{|q|B}{2\\pi m}$$
+
+#### Seletor de velocidades
+
+Com $\\vec{E} \\perp \\vec{B}$, partículas com $v = E/B$ atravessam sem deflexão; as demais são desviadas.
+
+#### Cíclotron
+
+Em cada travessia do gap entre os "Dees" a partícula ganha energia $qV_a$; o raio cresce em espiral até atingir a velocidade máxima.
+
+#### Roteiro sugerido
+
+- No modo $B$ puro, varie $v_0$ e verifique $r \\propto v$.
+- Compare $f_c$ ao mudar a massa: independente de $v$, mas inversamente proporcional a $m$.
+- No seletor, ajuste $E$ e $B$ até $v = E/B$ coincidir com $v_0$.
+- No cíclotron, observe espirais com $V_a$ maior produzindo maior aceleração por volta.`;
+
+export const ChargeTheoryTab = () => <MarkdownMath source={SOURCE} />;

@@ -1,15 +1,21 @@
-export const PoiseuilleTheoryTab = () => (
-  <article className="prose prose-sm max-w-none text-foreground">
-    <h3 className="font-display text-xl font-semibold">Escoamento de Hagen–Poiseuille</h3>
-    <p className="text-muted-foreground">Para fluido newtoniano em regime laminar e estacionário num tubo cilíndrico de raio R:</p>
-    <ul className="space-y-2 font-mono text-sm mt-3">
-      <li>v(r) = ΔP/(4ηL) · (R² − r²)   (perfil parabólico)</li>
-      <li>v_max = ΔP R² / (4ηL) ;  v̄ = v_max / 2</li>
-      <li>Q = π R⁴ ΔP / (8ηL)   (lei de Poiseuille)</li>
-      <li>R_h = 8ηL / (πR⁴)   (resistência hidráulica)</li>
-      <li>τ_parede = ΔP R / (2L)</li>
-      <li>Re = 2 ρ v̄ R / η  &lt; 2300 (laminar)</li>
-    </ul>
-    <p className="text-sm text-muted-foreground mt-3">Q ∝ R⁴ explica por que a vasoconstrição altera dramaticamente o fluxo sanguíneo, e por que tubos finos exigem altas pressões.</p>
-  </article>
-);
+import { MarkdownMath } from "@/components/shared/MarkdownMath";
+
+const SOURCE = `### Escoamento de Hagen–Poiseuille
+
+#### Perfil parabólico
+
+$$v(r) = \\frac{\\Delta P}{4\\eta L}(R^2 - r^2)$$
+
+$$v_{\\max} = \\frac{\\Delta P R^2}{4\\eta L}, \\quad \\bar v = \\frac{v_{\\max}}{2}$$
+
+#### Lei de Poiseuille
+
+$$Q = \\frac{\\pi R^4 \\Delta P}{8\\eta L}$$
+
+$$R_h = \\frac{8\\eta L}{\\pi R^4}, \\quad \\tau_{\\text{parede}} = \\frac{\\Delta P R}{2L}$$
+
+$$Re = \\frac{2\\rho \\bar v R}{\\eta} < 2300 \\;(\\text{laminar})$$
+
+$Q\\propto R^4$ — vasoconstrição altera muito o fluxo.`;
+
+export const PoiseuilleTheoryTab = () => <MarkdownMath source={SOURCE} />;

@@ -1,48 +1,45 @@
-export const CollisionTheoryTab = () => (
-  <article className="prose prose-sm max-w-none text-foreground">
-    <h3 className="font-display text-xl font-semibold">Colisões 1D — momento linear e energia</h3>
-    <p className="text-muted-foreground">
-      Em uma colisão entre dois corpos sem forças externas relevantes durante o impacto, o momento
-      linear total é sempre conservado. A energia cinética só se conserva em colisões perfeitamente
-      elásticas (e = 1); para 0 ≤ e &lt; 1 parte da energia é convertida em calor, som ou deformação.
-    </p>
+import { MarkdownMath } from "@/components/shared/MarkdownMath";
 
-    <h4 className="font-display font-semibold mt-6">Leis de conservação</h4>
-    <ul className="space-y-2 font-mono text-sm">
-      <li><span className="text-primary font-semibold">Momento:</span> m₁u₁ + m₂u₂ = m₁v₁ + m₂v₂</li>
-      <li><span className="text-primary font-semibold">Coef. de restituição:</span> e = −(v₁ − v₂)/(u₁ − u₂)</li>
-      <li><span className="text-primary font-semibold">Centro de massa:</span> v_cm = (m₁u₁ + m₂u₂)/(m₁ + m₂)</li>
-    </ul>
+const SOURCE = `Em uma colisão entre dois corpos sem forças externas relevantes durante o impacto, o momento linear total é sempre conservado. A energia cinética só se conserva em colisões perfeitamente elásticas ($e = 1$); para $0 \\le e < 1$ parte da energia é convertida em calor, som ou deformação.
 
-    <h4 className="font-display font-semibold mt-6">Velocidades pós-colisão</h4>
-    <ul className="space-y-2 font-mono text-sm">
-      <li>v₁ = [(m₁ − e·m₂) u₁ + (1 + e) m₂ u₂] / (m₁ + m₂)</li>
-      <li>v₂ = [(m₂ − e·m₁) u₂ + (1 + e) m₁ u₁] / (m₁ + m₂)</li>
-    </ul>
+#### Leis de conservação
 
-    <h4 className="font-display font-semibold mt-6">Energia dissipada</h4>
-    <p className="text-sm text-muted-foreground">
-      Definindo a massa reduzida μ = m₁ m₂/(m₁ + m₂) e a velocidade relativa u_rel = u₁ − u₂, a
-      energia perdida em calor/deformação é:
-    </p>
-    <p className="font-mono text-sm">ΔK = K_antes − K_depois = ½ μ (1 − e²) u_rel²</p>
-    <ul className="list-disc pl-5 text-sm space-y-1 mt-2">
-      <li><strong>Elástica (e = 1):</strong> ΔK = 0; K e p conservados.</li>
-      <li><strong>Parcialmente inelástica (0 &lt; e &lt; 1):</strong> p conservado, K diminui.</li>
-      <li><strong>Perfeitamente inelástica (e = 0):</strong> corpos seguem juntos com v = v_cm; perda máxima de K.</li>
-    </ul>
+**Momento linear:**
+$$m_1 u_1 + m_2 u_2 = m_1 v_1 + m_2 v_2$$
 
-    <h4 className="font-display font-semibold mt-6">Impulso e teorema do impulso</h4>
-    <p className="text-sm font-mono">J₁ = ∫F dt = Δp₁ = m₁(v₁ − u₁) = −J₂</p>
+**Coeficiente de restituição:**
+$$e = -\\frac{v_1 - v_2}{u_1 - u_2}$$
 
-    <h4 className="font-display font-semibold mt-6">Roteiro sugerido</h4>
-    <ol className="list-decimal pl-5 space-y-1 text-sm">
-      <li>Configure m₁ = m₂ e colisão elástica (e = 1): as velocidades se trocam.</li>
-      <li>Mantenha e = 1 mas faça m₂ ≫ m₁: o corpo leve "ricocheteia" e o pesado quase não muda.</li>
-      <li>Use e = 0 (perfeitamente inelástica): confirme que v₁ = v₂ = v_cm após o impacto.</li>
-      <li>Varie e na aba "vs. e" e observe como ΔK cresce de 0 (em e = 1) até o máximo (em e = 0).</li>
-      <li>Verifique numericamente que Δp ≈ 0 em todas as configurações (aba "Medições").</li>
-      <li>Compare o impulso em m₁ e m₂: J₁ = −J₂ pela 3ª lei de Newton.</li>
-    </ol>
-  </article>
-);
+**Velocidade do centro de massa:**
+$$v_{\\text{cm}} = \\frac{m_1 u_1 + m_2 u_2}{m_1 + m_2}$$
+
+#### Velocidades pós-colisão
+
+$$v_1 = \\frac{(m_1 - e\\,m_2)\\,u_1 + (1 + e)\\,m_2\\,u_2}{m_1 + m_2}$$
+
+$$v_2 = \\frac{(m_2 - e\\,m_1)\\,u_2 + (1 + e)\\,m_1\\,u_1}{m_1 + m_2}$$
+
+#### Energia dissipada
+
+Definindo a massa reduzida $\\mu = \\dfrac{m_1 m_2}{m_1 + m_2}$ e a velocidade relativa $u_{\\text{rel}} = u_1 - u_2$, a energia perdida em calor/deformação é:
+
+$$\\Delta K = K_{\\text{antes}} - K_{\\text{depois}} = \\tfrac{1}{2}\\,\\mu\\,(1 - e^2)\\,u_{\\text{rel}}^2$$
+
+- **Elástica ($e = 1$):** $\\Delta K = 0$; $K$ e $p$ conservados.
+- **Parcialmente inelástica ($0 < e < 1$):** $p$ conservado, $K$ diminui.
+- **Perfeitamente inelástica ($e = 0$):** corpos seguem juntos com $v = v_{\\text{cm}}$; perda máxima de $K$.
+
+#### Impulso e teorema do impulso
+
+$$J_1 = \\int F\\,dt = \\Delta p_1 = m_1(v_1 - u_1) = -J_2$$
+
+#### Roteiro sugerido
+
+1. Configure $m_1 = m_2$ e colisão elástica ($e = 1$): as velocidades se trocam.
+2. Mantenha $e = 1$ mas faça $m_2 \\gg m_1$: o corpo leve "ricocheteia" e o pesado quase não muda.
+3. Use $e = 0$ (perfeitamente inelástica): confirme que $v_1 = v_2 = v_{\\text{cm}}$ após o impacto.
+4. Varie $e$ na aba "vs. e" e observe como $\\Delta K$ cresce de $0$ (em $e = 1$) até o máximo (em $e = 0$).
+5. Verifique numericamente que $\\Delta p \\approx 0$ em todas as configurações (aba "Medições").
+6. Compare o impulso em $m_1$ e $m_2$: $J_1 = -J_2$ pela 3ª lei de Newton.`;
+
+export const CollisionTheoryTab = () => <MarkdownMath source={SOURCE} />;

@@ -27,7 +27,9 @@ Deno.serve(async (req) => {
 
 Domínio: toda a Física Geral universitária, incluindo Mecânica (cinemática, dinâmica, leis de Newton, trabalho e energia, momento linear e angular, rotação, gravitação), Oscilações e Ondas (MHS, ondas mecânicas, som), Fluidos, Termodinâmica (calor, gases ideais, leis da termodinâmica, entropia), Eletricidade e Magnetismo (eletrostática, lei de Gauss, potencial, capacitores, corrente, circuitos DC/AC, RC/RL/RLC, campo magnético, lei de Ampère, indução de Faraday, equações de Maxwell), Óptica (geométrica, ondulatória, interferência, difração, polarização) e introdução à Física Moderna (relatividade restrita, quântica básica, física atômica e nuclear).
 
-Estilo: claro, didático, em português do Brasil. Use notação matemática simples (ex.: F = m·a, V = R·I, λ = h/p, PV = nRT). Conecte o experimento atual a conceitos fundamentais e, quando relevante, sugira variações de parâmetros e analogias com outros tópicos da Física Geral.
+Estilo: claro, didático, em português do Brasil. Conecte o experimento atual a conceitos fundamentais e, quando relevante, sugira variações de parâmetros e analogias com outros tópicos da Física Geral.
+
+Formatação: responda em Markdown. Escreva TODAS as equações em LaTeX: use $...$ para matemática inline (ex.: $F = m a$, $\\lambda = h/p$) e $$...$$ em linha própria para equações em destaque (ex.: $$PV = nRT$$). Use \\vec{F}, \\frac{a}{b}, \\sqrt{x}, x^{2}, x_{i}, \\Delta, \\sum, \\int, \\partial, letras gregas (\\alpha, \\beta, \\omega, \\rho, \\eta, \\lambda, \\mu) etc. NÃO use caracteres unicode (²³₀ηρλΔ) fora de equações — sempre dentro de $...$.
 
 Contexto atual do experimento (${expName}):
 ${ctxStr}

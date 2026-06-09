@@ -1,14 +1,21 @@
-export const StefanTheoryTab = () => (
-  <article className="prose prose-sm max-w-none text-foreground">
-    <h3 className="font-display text-xl font-semibold">Radiação térmica</h3>
-    <p className="text-muted-foreground">Todo corpo emite radiação eletromagnética. Para um corpo cinza com emissividade ε:</p>
-    <ul className="space-y-2 font-mono text-sm mt-3">
-      <li>P = εσA T⁴   (Stefan-Boltzmann)</li>
-      <li>σ = 5.6704 × 10⁻⁸ W/(m²·K⁴)</li>
-      <li>Troca líquida: P_net = εσA (T₁⁴ − T₂⁴)</li>
-      <li>λ_máx · T = b = 2.898 × 10⁻³ m·K  (lei de Wien)</li>
-      <li>B(λ,T) = (2hc²/λ⁵) · 1/(exp(hc/λkT) − 1)  (Planck)</li>
-    </ul>
-    <p className="text-sm text-muted-foreground mt-3">Sol (~5800 K) → λ_máx ≈ 500 nm (verde). Corpo humano (~310 K) → λ_máx ≈ 9 μm (IR).</p>
-  </article>
-);
+import { MarkdownMath } from "@/components/shared/MarkdownMath";
+
+const SOURCE = `### Radiação térmica
+
+#### Stefan–Boltzmann
+
+$$P = \\varepsilon \\sigma A T^4, \\quad \\sigma = 5{,}6704\\times10^{-8}\\,\\text{W/(m}^2\\text{K}^4\\text{)}$$
+
+Troca líquida: $P_{\\text{net}} = \\varepsilon\\sigma A(T_1^4 - T_2^4)$.
+
+#### Wien
+
+$$\\lambda_{\\max} T = b = 2{,}898\\times10^{-3}\\,\\text{m·K}$$
+
+#### Planck
+
+$$B(\\lambda,T) = \\frac{2hc^2}{\\lambda^5}\\frac{1}{\\exp(hc/\\lambda k_B T) - 1}$$
+
+Sol ($\\sim 5800\\,\\text{K}$): $\\lambda_{\\max}\\approx 500\\,\\text{nm}$. Corpo humano ($\\sim 310\\,\\text{K}$): $\\lambda_{\\max}\\approx 9\\,\\mu\\text{m}$ (IR).`;
+
+export const StefanTheoryTab = () => <MarkdownMath source={SOURCE} />;
