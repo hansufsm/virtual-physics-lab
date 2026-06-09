@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sparkles, Send, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { MarkdownMath } from "./MarkdownMath";
 
 interface Msg { role: "user" | "assistant"; content: string }
 interface Props {
@@ -91,8 +92,12 @@ export const LabAssistant = ({ experimentName, contextSummary, suggestions, desc
         )}
         {messages.map((m, i) => (
           <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap ${m.role === "user" ? "bg-primary text-primary-foreground rounded-br-sm" : "bg-secondary text-secondary-foreground rounded-bl-sm"}`}>
-              {m.content || (loading && i === messages.length - 1 ? <Loader2 className="h-4 w-4 animate-spin" /> : null)}
+            <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm ${m.role === "user" ? "bg-primary text-primary-foreground rounded-br-sm whitespace-pre-wrap" : "bg-secondary text-secondary-foreground rounded-bl-sm"}`}>
+              {m.role === "assistant"
+                ? (m.content
+                    ? <MarkdownMath source={m.content} className="prose-p:my-1 prose-headings:my-2 prose-ul:my-1" />
+                    : (loading && i === messages.length - 1 ? <Loader2 className="h-4 w-4 animate-spin" /> : null))
+                : m.content}
             </div>
           </div>
         ))}
