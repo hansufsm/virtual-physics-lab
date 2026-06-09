@@ -481,6 +481,33 @@ const experiments = [
     description: "P = εσA T⁴, troca radiativa com o ambiente e lei do deslocamento de Wien.",
     href: "/experimentos/radiacao-termica",
   },
+  {
+    id: "bernoulli",
+    available: true,
+    icon: Waves,
+    area: "Fluidos",
+    title: "Bernoulli — tubo de Venturi",
+    description: "Conservação de energia em escoamentos: continuidade, queda de pressão na garganta e vazão.",
+    href: "/experimentos/bernoulli",
+  },
+  {
+    id: "stokes",
+    available: true,
+    icon: Circle,
+    area: "Fluidos",
+    title: "Lei de Stokes — viscosidade",
+    description: "Esfera caindo em fluido viscoso: arrasto F=6πηrv, velocidade terminal e número de Reynolds.",
+    href: "/experimentos/stokes",
+  },
+  {
+    id: "poiseuille",
+    available: true,
+    icon: Activity,
+    area: "Fluidos",
+    title: "Escoamento de Poiseuille",
+    description: "Perfil parabólico v(r) em tubo cilíndrico, vazão Q ∝ R⁴ ΔP/(ηL) e resistência hidráulica.",
+    href: "/experimentos/poiseuille",
+  },
 ];
 
 const Index = () => {
@@ -533,7 +560,7 @@ const Index = () => {
 
           <dl className="mt-14 grid grid-cols-2 md:grid-cols-4 gap-6 animate-fade-in">
             {[
-            { k: "53", v: "Experimentos ativos" },
+            { k: "56", v: "Experimentos ativos" },
               { k: "Open", v: "Próximos por vir" },
               { k: "Tempo real", v: "Cálculos físicos" },
               { k: "IA", v: "Assistente contextual" },
