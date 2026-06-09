@@ -4031,3 +4031,129 @@ export function computeStefan(p: StefanParams): StefanResults {
     curveT,
   };
 }
+
+// =============================================================
+// EXP-54 · Bernoulli / Venturi
+// =============================================================
+export interface BernoulliParams {
+  P1_Pa: number;
+  v1_ms: number;
+  A1_m2: number;
+  A2_m2: number;
+  rho_kg_m3: number;
+  h1_m: number;
+  h2_m: number;
+}
+export interface BernoulliResults {
+  v2_ms: number;
+  P2_Pa: number;
+  Q_m3s: number;          // vazão volumétrica
+  massFlow_kgs: number;
+  deltaP_Pa: number;      // P1 − P2
+  reynolds: number;       // baseado em diâmetro da seção 2
+  profile: { x: number; A: number; v: number; P: number }[]; // varredura ao longo do tubo
+}
+export function computeBernoulli(p: BernoulliParams): BernoulliResults {
+  const g = 9.80665;
+  const A1 = Math.max(1e-9, p.A1_m2);
+  const A2 = Math.max(1e-9, p.A2_m2);
+  const v2 = (p.v1_ms * A1) / A2;
+  const P2 = p.P1_Pa + 0.5 * p.rho_kg_m3 * (p.v1_ms ** 2 - v2 ** 2) + p.rho_kg_m3 * g * (p.h1_m - p.h2_m);
+  const Q = A1 * p.v1_ms;
+  const d2 = 2 * Math.sqrt(A2 / Math.PI);
+  const eta = 1e-3; // água a 20 °C (referência)
+  const Re = (p.rho_kg_m3 * v2 * d2) / eta;
+  const profile: { x: number; A: number; v: number; P: number }[] = [];
+  const N = 80;
+  for (let i = 0; i <= N; i++) {
+    const x = i / N;
+    // garganta em x ≈ 0.5 (interpolação suave entre A1 e A2)
+    const s = Math.cos(Math.PI * x) * 0.5 + 0.5; // 1 nas pontas, 0 no meio
+    const A = A2 + (A1 - A2) * s;
+    const v = (p.v1_ms * A1) / A;
+    const h = p.h1_m + (p.h2_m - p.h1_m) * x;
+    const P = p.P1_Pa + 0.5 * p.rho_kg_m3 * (p.v1_ms ** 2 - v ** 2) + p.rho_kg_m3 * g * (p.h1_m - h);
+    profile.push({ x, A, v, P });
+  }
+  return { v2_ms: v2, P2_Pa: P2, Q_m3s: Q, massFlow_kgs: Q * p.rho_kg_m3, deltaP_Pa: p.P1_Pa - P2, reynolds: Re, profile };
+}
+
+// =============================================================
+// EXP-55 · Lei de Stokes (esfera caindo em fluido viscoso)
+// =============================================================
+export interface StokesParams {
+  radius_mm: number;
+  rho_sphere: number;     // kg/m³
+  rho_fluid: number;      // kg/m³
+  eta_Pas: number;        // viscosidade dinâmica
+}
+export interface StokesResults {
+  v_terminal: number;     // m/s
+  tau_s: number;          // tempo característico
+  reynolds: number;       // a v_terminal
+  drag_N: number;         // F_d = 6πη r v_t
+  weight_N: number;
+  buoyancy_N: number;
+  series: { t: number; v: number; x: number }[];
+}
+export function computeStokes(p: StokesParams): StokesResults {
+  const g = 9.80665;
+  const r = Math.max(1e-6, p.radius_mm) * 1e-3;
+  const V = (4 / 3) * Math.PI * r ** 3;
+  const m = p.rho_sphere * V;
+  const W = m * g;
+  const Fb = p.rho_fluid * V * g;
+  const vt = (2 * (p.rho_sphere - p.rho_fluid) * g * r * r) / (9 * Math.max(1e-9, p.eta_Pas));
+  const tau = m / (6 * Math.PI * p.eta_Pas * r);
+  const Re = (2 * p.rho_fluid * Math.abs(vt) * r) / Math.max(1e-9, p.eta_Pas);
+  const Fd = 6 * Math.PI * p.eta_Pas * r * vt;
+  const series: { t: number; v: number; x: number }[] = [];
+  const T = Math.max(4 * Math.abs(tau), 1);
+  const N = 200;
+  for (let i = 0; i <= N; i++) {
+    const t = (i / N) * T;
+    const v = vt * (1 - Math.exp(-t / tau));
+    const x = vt * (t + tau * (Math.exp(-t / tau) - 1));
+    series.push({ t, v, x });
+  }
+  return { v_terminal: vt, tau_s: tau, reynolds: Re, drag_N: Fd, weight_N: W, buoyancy_N: Fb, series };
+}
+
+// =============================================================
+// EXP-56 · Escoamento de Poiseuille (tubo cilíndrico)
+// =============================================================
+export interface PoiseuilleParams {
+  deltaP_Pa: number;
+  L_m: number;
+  radius_mm: number;
+  eta_Pas: number;
+  rho_kg_m3: number;
+}
+export interface PoiseuilleResults {
+  Q_m3s: number;
+  v_max: number;
+  v_mean: number;
+  resistance: number;     // R_h = 8ηL/(πR⁴)
+  reynolds: number;       // 2ρ v_mean R / η
+  shear_wall_Pa: number;  // τ_w = ΔP R / (2L)
+  profile: { r: number; v: number }[]; // perfil parabólico v(r)
+}
+export function computePoiseuille(p: PoiseuilleParams): PoiseuilleResults {
+  const R = Math.max(1e-6, p.radius_mm) * 1e-3;
+  const eta = Math.max(1e-9, p.eta_Pas);
+  const L = Math.max(1e-6, p.L_m);
+  const Q = (Math.PI * Math.pow(R, 4) * p.deltaP_Pa) / (8 * eta * L);
+  const v_max = (p.deltaP_Pa * R * R) / (4 * eta * L);
+  const v_mean = v_max / 2;
+  const Rh = (8 * eta * L) / (Math.PI * Math.pow(R, 4));
+  const Re = (2 * p.rho_kg_m3 * v_mean * R) / eta;
+  const tau_w = (p.deltaP_Pa * R) / (2 * L);
+  const profile: { r: number; v: number }[] = [];
+  const N = 80;
+  for (let i = -N; i <= N; i++) {
+    const r = (i / N) * R;
+    const v = v_max * (1 - (r * r) / (R * R));
+    profile.push({ r, v });
+  }
+  return { Q_m3s: Q, v_max, v_mean, resistance: Rh, reynolds: Re, shear_wall_Pa: tau_w, profile };
+}
